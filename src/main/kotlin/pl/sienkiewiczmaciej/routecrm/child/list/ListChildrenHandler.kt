@@ -1,13 +1,17 @@
 package pl.sienkiewiczmaciej.routecrm.child.list
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.child.domain.*
 import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianAssignmentJpaRepository
+import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
@@ -38,6 +42,7 @@ data class ChildListItem(
 class ListChildrenHandler(
     private val childRepository: ChildRepository,
     private val guardianAssignmentRepository: GuardianAssignmentJpaRepository,
+    private val scheduleRepository: ScheduleRepository,
     private val authService: AuthorizationService
 ) {
     @Transactional(readOnly = true)
@@ -59,24 +64,35 @@ class ListChildrenHandler(
             )
         }
 
-        return children.map { child ->
-            val guardiansCount = guardianAssignmentRepository.countByCompanyIdAndChildId(
-                query.companyId.value,
-                child.id.value
-            ).toInt()
+        val items = withContext(Dispatchers.IO) {
+            children.content.map { child ->
+                async {
+                    val guardiansCount = guardianAssignmentRepository.countByCompanyIdAndChildId(
+                        query.companyId.value,
+                        child.id.value
+                    ).toInt()
 
-            ChildListItem(
-                id = child.id,
-                firstName = child.firstName,
-                lastName = child.lastName,
-                birthDate = child.birthDate,
-                age = child.age(),
-                status = child.status,
-                disability = child.disability,
-                transportNeeds = child.transportNeeds,
-                guardiansCount = guardiansCount,
-                activeSchedulesCount = 0
-            )
+                    val activeSchedulesCount = scheduleRepository.countActiveByChild(
+                        query.companyId,
+                        child.id
+                    )
+
+                    ChildListItem(
+                        id = child.id,
+                        firstName = child.firstName,
+                        lastName = child.lastName,
+                        birthDate = child.birthDate,
+                        age = child.age(),
+                        status = child.status,
+                        disability = child.disability,
+                        transportNeeds = child.transportNeeds,
+                        guardiansCount = guardiansCount,
+                        activeSchedulesCount = activeSchedulesCount
+                    )
+                }
+            }.awaitAll()
         }
+
+        return PageImpl(items, children.pageable, children.totalElements)
     }
 }
