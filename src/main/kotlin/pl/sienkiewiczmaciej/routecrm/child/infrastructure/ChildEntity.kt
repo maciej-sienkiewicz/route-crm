@@ -1,8 +1,10 @@
 package pl.sienkiewiczmaciej.routecrm.child.infrastructure
 
 import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import jakarta.persistence.*
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import pl.sienkiewiczmaciej.routecrm.child.domain.*
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import java.time.Instant
@@ -38,12 +40,12 @@ class ChildEntity(
     @Column(nullable = false, length = 50)
     val status: ChildStatus,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
-    @Convert(converter = DisabilitySetConverter::class)
     val disability: Set<DisabilityType>,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "transport_needs", columnDefinition = "jsonb", nullable = false)
-    @Convert(converter = TransportNeedsConverter::class)
     val transportNeeds: TransportNeeds,
 
     @Column(columnDefinition = "text")
@@ -79,33 +81,5 @@ class ChildEntity(
             transportNeeds = child.transportNeeds,
             notes = child.notes
         )
-    }
-}
-
-@Converter
-class DisabilitySetConverter : AttributeConverter<Set<DisabilityType>, String> {
-    private val objectMapper = ObjectMapper()
-
-    override fun convertToDatabaseColumn(attribute: Set<DisabilityType>?): String {
-        return objectMapper.writeValueAsString(attribute ?: emptySet<DisabilityType>())
-    }
-
-    override fun convertToEntityAttribute(dbData: String?): Set<DisabilityType> {
-        if (dbData.isNullOrBlank()) return emptySet()
-        return objectMapper.readValue(dbData, object : TypeReference<Set<DisabilityType>>() {})
-    }
-}
-
-@Converter
-class TransportNeedsConverter : AttributeConverter<TransportNeeds, String> {
-    private val objectMapper = ObjectMapper()
-
-    override fun convertToDatabaseColumn(attribute: TransportNeeds?): String {
-        return objectMapper.writeValueAsString(attribute ?: TransportNeeds(false, false, false))
-    }
-
-    override fun convertToEntityAttribute(dbData: String?): TransportNeeds {
-        if (dbData.isNullOrBlank()) return TransportNeeds(false, false, false)
-        return objectMapper.readValue(dbData, TransportNeeds::class.java)
     }
 }

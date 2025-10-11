@@ -1,0 +1,1654 @@
+TRANSPORT CRM - API SPECIFICATION
+Version: 1.0
+Last Updated: 2025-01-15
+Base URL: /api
+
+AUTHENTICATION
+POST /api/auth/login
+Description: Authenticate user and create session
+Request:
+json{
+  "email": "john.doe@company.com",
+  "password": "SecurePass123!"
+}
+Response 200:
+json{
+  "user": {
+    "id": "USR-550e8400-e29b-41d4-a716-446655440000",
+    "email": "john.doe@company.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "role": "OPERATOR",
+    "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+    "companyName": "Transport Services Ltd",
+    "guardianId": null,
+    "driverId": null
+  }
+}
+Response 401:
+json{
+  "message": "Invalid credentials",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+Notes:
+
+Session cookie set automatically (HttpOnly, Secure, SameSite=Strict)
+Cookie name: SESSION
+Session TTL: 8 hours with sliding expiration
+
+
+POST /api/auth/logout
+Description: Invalidate current session
+Response 204: No content
+
+GET /api/auth/me
+Description: Get current authenticated user info
+Response 200:
+json{
+  "id": "USR-550e8400-e29b-41d4-a716-446655440000",
+  "email": "john.doe@company.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "role": "OPERATOR",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "companyName": "Transport Services Ltd",
+  "guardianId": null,
+  "driverId": null
+}
+Response 401:
+json{
+  "message": "Not authenticated",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+
+CHILDREN
+POST /api/children
+Description: Create new child
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "child": {
+    "firstName": "Anna",
+    "lastName": "Kowalska",
+    "birthDate": "2015-03-15",
+    "disability": ["INTELLECTUAL", "PHYSICAL"],
+    "transportNeeds": {
+      "wheelchair": false,
+      "specialSeat": true,
+      "safetyBelt": true,
+      "medicalEquipment": ["Nebulizer"]
+    },
+    "allergies": ["Peanuts", "Latex"],
+    "medications": [
+      {
+        "name": "Ritalin",
+        "dosage": "10mg",
+        "schedule": "Morning and afternoon",
+        "instructions": "Take with food"
+      }
+    ],
+    "emergencyInfo": "Contact emergency services immediately if seizure occurs",
+    "notes": "Requires close supervision"
+  },
+  "guardian": {
+    "existingId": "GRD-550e8400-e29b-41d4-a716-446655440000",
+    "firstName": "Maria",
+    "lastName": "Kowalska",
+    "email": "maria.kowalska@email.com",
+    "phone": "+48123456789",
+    "relationship": "PARENT"
+  }
+}
+Notes:
+
+guardian.existingId: if provided, links to existing guardian (other fields ignored)
+If existingId is null, creates new guardian with provided data
+disability: array of enum values
+transportNeeds.medicalEquipment: array of strings
+
+Response 201:
+json{
+  "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Anna",
+  "lastName": "Kowalska",
+  "birthDate": "2015-03-15",
+  "age": 9,
+  "status": "ACTIVE",
+  "disability": ["INTELLECTUAL", "PHYSICAL"],
+  "transportNeeds": {
+    "wheelchair": false,
+    "specialSeat": true,
+    "safetyBelt": true,
+    "medicalEquipment": ["Nebulizer"]
+  },
+  "allergies": ["Peanuts", "Latex"],
+  "medications": [
+    {
+      "id": "MED-550e8400-e29b-41d4-a716-446655440000",
+      "name": "Ritalin",
+      "dosage": "10mg",
+      "schedule": "Morning and afternoon",
+      "instructions": "Take with food"
+    }
+  ],
+  "emergencyInfo": "Contact emergency services immediately if seizure occurs",
+  "notes": "Requires close supervision",
+  "guardiansCount": 1,
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+
+GET /api/children
+Description: List children with filtering and pagination
+Roles: ADMIN, OPERATOR, GUARDIAN (own children only)
+Query Parameters:
+
+status (optional): ACTIVE | INACTIVE | TEMPORARY_INACTIVE
+page (optional, default: 0): Page number (0-indexed)
+size (optional, default: 20, max: 100): Page size
+sort (optional, default: createdAt,desc): Sort field and direction
+
+Response 200:
+json{
+  "content": [
+    {
+      "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+      "firstName": "Anna",
+      "lastName": "Kowalska",
+      "birthDate": "2015-03-15",
+      "age": 9,
+      "status": "ACTIVE",
+      "disability": ["INTELLECTUAL", "PHYSICAL"],
+      "transportNeeds": {
+        "wheelchair": false,
+        "specialSeat": true,
+        "safetyBelt": true
+      },
+      "guardiansCount": 2,
+      "activeRoutesCount": 3
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 20,
+    "sort": {
+      "sorted": true,
+      "orders": [
+        {
+          "property": "createdAt",
+          "direction": "DESC"
+        }
+      ]
+    }
+  },
+  "totalElements": 45,
+  "totalPages": 3,
+  "first": true,
+  "last": false
+}
+
+GET /api/children/{id}
+Description: Get child details by ID
+Roles: ADMIN, OPERATOR, GUARDIAN (own child only)
+Response 200:
+json{
+  "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Anna",
+  "lastName": "Kowalska",
+  "birthDate": "2015-03-15",
+  "age": 9,
+  "status": "ACTIVE",
+  "disability": ["INTELLECTUAL", "PHYSICAL"],
+  "transportNeeds": {
+    "wheelchair": false,
+    "specialSeat": true,
+    "safetyBelt": true,
+    "medicalEquipment": ["Nebulizer"]
+  },
+  "allergies": ["Peanuts", "Latex"],
+  "medications": [
+    {
+      "id": "MED-550e8400-e29b-41d4-a716-446655440000",
+      "name": "Ritalin",
+      "dosage": "10mg",
+      "schedule": "Morning and afternoon",
+      "instructions": "Take with food"
+    }
+  ],
+  "emergencyInfo": "Contact emergency services immediately if seizure occurs",
+  "notes": "Requires close supervision",
+  "guardians": [
+    {
+      "id": "GRD-550e8400-e29b-41d4-a716-446655440000",
+      "firstName": "Maria",
+      "lastName": "Kowalska",
+      "email": "maria.kowalska@email.com",
+      "phone": "+48123456789",
+      "relationship": "PARENT",
+      "isPrimary": true
+    }
+  ],
+  "schedules": [
+    {
+      "id": "SCH-550e8400-e29b-41d4-a716-446655440000",
+      "name": "Do szkoły",
+      "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+      "pickupTime": "07:30",
+      "dropoffTime": "08:15",
+      "active": true
+    }
+  ],
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+Response 404:
+json{
+  "message": "Child CH-123 not found",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+
+PUT /api/children/{id}
+Description: Update child information
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "firstName": "Anna",
+  "lastName": "Kowalska",
+  "birthDate": "2015-03-15",
+  "status": "ACTIVE",
+  "disability": ["INTELLECTUAL"],
+  "transportNeeds": {
+    "wheelchair": true,
+    "specialSeat": true,
+    "safetyBelt": true,
+    "medicalEquipment": ["Nebulizer", "EpiPen"]
+  },
+  "allergies": ["Peanuts", "Latex", "Bee stings"],
+  "emergencyInfo": "Updated emergency info",
+  "notes": "Updated notes"
+}
+Response 200:
+json{
+  "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Anna",
+  "lastName": "Kowalska",
+  "status": "ACTIVE",
+  "updatedAt": "2025-01-15T11:00:00Z"
+}
+
+DELETE /api/children/{id}
+Description: Delete child (soft delete - sets status to INACTIVE)
+Roles: ADMIN
+Response 204: No content
+
+GUARDIANS
+POST /api/guardians
+Description: Create new guardian
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@email.com",
+  "phone": "+48987654321",
+  "alternatePhone": "+48123456789",
+  "address": {
+    "street": "ul. Marszałkowska",
+    "houseNumber": "10",
+    "apartmentNumber": "5",
+    "postalCode": "00-001",
+    "city": "Warszawa"
+  },
+  "communicationPreference": "SMS"
+}
+Response 201:
+json{
+  "id": "GRD-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@email.com",
+  "phone": "+48987654321",
+  "alternatePhone": "+48123456789",
+  "address": {
+    "street": "ul. Marszałkowska",
+    "houseNumber": "10",
+    "apartmentNumber": "5",
+    "postalCode": "00-001",
+    "city": "Warszawa"
+  },
+  "communicationPreference": "SMS",
+  "childrenCount": 0,
+  "createdAt": "2025-01-15T10:30:00Z"RetryMSNie trzymamy żadnych zaleceń medycznych: nie będziemy trzymać informacji o żadnych lekach, dawkowaniu, postępowaniu medycznym. jeśli jakieś pole ma wartości enumeryczne jak "disability" to pokaż wszystkie możliwe opcje do użycia. zadbaj o to, żeby API było profesjonalne i zgodne z najlepszymi praktykami.TRANSPORT CRM - API SPECIFICATION
+Version: 1.0
+Last Updated: 2025-01-15
+Base URL: /api
+
+AUTHENTICATION
+POST /api/auth/login
+Description: Authenticate user and create session
+Request:
+json{
+  "email": "john.doe@company.com",
+  "password": "SecurePass123!"
+}
+Response 200:
+json{
+  "user": {
+    "id": "USR-550e8400-e29b-41d4-a716-446655440000",
+    "email": "john.doe@company.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "role": "OPERATOR",
+    "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+    "companyName": "Transport Services Ltd",
+    "guardianId": null,
+    "driverId": null
+  }
+}
+Response 401:
+json{
+  "message": "Invalid credentials",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+Notes:
+
+Session cookie set automatically (HttpOnly, Secure, SameSite=Strict)
+Cookie name: SESSION
+Session TTL: 8 hours with sliding expiration
+
+
+POST /api/auth/logout
+Description: Invalidate current session
+Response 204: No content
+
+GET /api/auth/me
+Description: Get current authenticated user info
+Response 200:
+json{
+  "id": "USR-550e8400-e29b-41d4-a716-446655440000",
+  "email": "john.doe@company.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "role": "OPERATOR",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "companyName": "Transport Services Ltd",
+  "guardianId": null,
+  "driverId": null
+}
+Response 401:
+json{
+  "message": "Not authenticated",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+
+CHILDREN
+POST /api/children
+Description: Create new child
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "child": {
+    "firstName": "Anna",
+    "lastName": "Kowalska",
+    "birthDate": "2015-03-15",
+    "disability": ["INTELLECTUAL", "PHYSICAL"],
+    "transportNeeds": {
+      "wheelchair": false,
+      "specialSeat": true,
+      "safetyBelt": true
+    },
+    "notes": "Dziecko wymaga stałej obserwacji. Reaguje dobrze na spokojne otoczenie."
+  },
+  "guardian": {
+    "existingId": "GRD-550e8400-e29b-41d4-a716-446655440000",
+    "firstName": "Maria",
+    "lastName": "Kowalska",
+    "email": "maria.kowalska@email.com",
+    "phone": "+48123456789",
+    "relationship": "PARENT"
+  }
+}
+Notes:
+
+guardian.existingId: if provided, links to existing guardian (other fields ignored)
+If existingId is null, creates new guardian with provided data
+
+Response 201:
+json{
+  "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Anna",
+  "lastName": "Kowalska",
+  "birthDate": "2015-03-15",
+  "age": 9,
+  "status": "ACTIVE",
+  "disability": ["INTELLECTUAL", "PHYSICAL"],
+  "transportNeeds": {
+    "wheelchair": false,
+    "specialSeat": true,
+    "safetyBelt": true
+  },
+  "notes": "Dziecko wymaga stałej obserwacji. Reaguje dobrze na spokojne otoczenie.",
+  "guardiansCount": 1,
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+
+GET /api/children
+Description: List children with filtering and pagination
+Roles: ADMIN, OPERATOR, GUARDIAN (own children only)
+Query Parameters:
+
+status (optional): ACTIVE | INACTIVE | TEMPORARY_INACTIVE
+page (optional, default: 0): Page number (0-indexed)
+size (optional, default: 20, max: 100): Page size
+sort (optional, default: lastName,asc): Sort field and direction
+
+Response 200:
+json{
+  "content": [
+    {
+      "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+      "firstName": "Anna",
+      "lastName": "Kowalska",
+      "birthDate": "2015-03-15",
+      "age": 9,
+      "status": "ACTIVE",
+      "disability": ["INTELLECTUAL", "PHYSICAL"],
+      "transportNeeds": {
+        "wheelchair": false,
+        "specialSeat": true,
+        "safetyBelt": true
+      },
+      "guardiansCount": 2,
+      "activeSchedulesCount": 3
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 20,
+    "sort": {
+      "sorted": true,
+      "orders": [
+        {
+          "property": "lastName",
+          "direction": "ASC"
+        }
+      ]
+    }
+  },
+  "totalElements": 45,
+  "totalPages": 3,
+  "first": true,
+  "last": false
+}
+
+GET /api/children/{id}
+Description: Get child details by ID
+Roles: ADMIN, OPERATOR, GUARDIAN (own child only)
+Response 200:
+json{
+  "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Anna",
+  "lastName": "Kowalska",
+  "birthDate": "2015-03-15",
+  "age": 9,
+  "status": "ACTIVE",
+  "disability": ["INTELLECTUAL", "PHYSICAL"],
+  "transportNeeds": {
+    "wheelchair": false,
+    "specialSeat": true,
+    "safetyBelt": true
+  },
+  "notes": "Dziecko wymaga stałej obserwacji. Reaguje dobrze na spokojne otoczenie.",
+  "guardians": [
+    {
+      "id": "GRD-550e8400-e29b-41d4-a716-446655440000",
+      "firstName": "Maria",
+      "lastName": "Kowalska",
+      "email": "maria.kowalska@email.com",
+      "phone": "+48123456789",
+      "relationship": "PARENT",
+      "isPrimary": true,
+      "canPickup": true,
+      "canAuthorize": true
+    }
+  ],
+  "schedules": [
+    {
+      "id": "SCH-550e8400-e29b-41d4-a716-446655440000",
+      "name": "Do szkoły",
+      "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+      "pickupTime": "07:30",
+      "pickupAddress": {
+        "label": "Dom",
+        "street": "ul. Słoneczna",
+        "houseNumber": "15",
+        "apartmentNumber": "5",
+        "postalCode": "00-001",
+        "city": "Warszawa"
+      },
+      "dropoffTime": "08:15",
+      "dropoffAddress": {
+        "label": "Szkoła",
+        "street": "ul. Piękna",
+        "houseNumber": "5",
+        "postalCode": "00-123",
+        "city": "Warszawa"
+      },
+      "active": true
+    }
+  ],
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+Response 404:
+json{
+  "message": "Child CH-550e8400-e29b-41d4-a716-446655440000 not found",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+
+PUT /api/children/{id}
+Description: Update child information
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "firstName": "Anna",
+  "lastName": "Kowalska",
+  "birthDate": "2015-03-15",
+  "status": "ACTIVE",
+  "disability": ["INTELLECTUAL"],
+  "transportNeeds": {
+    "wheelchair": true,
+    "specialSeat": true,
+    "safetyBelt": true
+  },
+  "notes": "Zaktualizowane informacje o dziecku"
+}
+Response 200:
+json{
+  "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Anna",
+  "lastName": "Kowalska",
+  "status": "ACTIVE",
+  "updatedAt": "2025-01-15T11:00:00Z"
+}
+
+DELETE /api/children/{id}
+Description: Delete child (soft delete - sets status to INACTIVE)
+Roles: ADMIN
+Response 204: No content
+
+GUARDIANS
+POST /api/guardians
+Description: Create new guardian
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@email.com",
+  "phone": "+48987654321",
+  "alternatePhone": "+48123456789",
+  "address": {
+    "street": "ul. Marszałkowska",
+    "houseNumber": "10",
+    "apartmentNumber": "5",
+    "postalCode": "00-001",
+    "city": "Warszawa"
+  },
+  "communicationPreference": "SMS"
+}
+Response 201:
+json{
+  "id": "GRD-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@email.com",
+  "phone": "+48987654321",
+  "alternatePhone": "+48123456789",
+  "address": {
+    "street": "ul. Marszałkowska",
+    "houseNumber": "10",
+    "apartmentNumber": "5",
+    "postalCode": "00-001",
+    "city": "Warszawa"
+  },
+  "communicationPreference": "SMS",
+  "childrenCount": 0,
+  "createdAt": "2025-01-15T10:30:00Z"
+}
+
+GET /api/guardians
+Description: List guardians with filtering and pagination
+Roles: ADMIN, OPERATOR
+Query Parameters:
+
+search (optional): Search by name, email, or phone
+page (optional, default: 0): Page number
+size (optional, default: 20, max: 100): Page size
+sort (optional, default: lastName,asc): Sort field and direction
+
+Response 200:
+json{
+  "content": [
+    {
+      "id": "GRD-550e8400-e29b-41d4-a716-446655440000",
+      "firstName": "Jan",
+      "lastName": "Kowalski",
+      "email": "jan.kowalski@email.com",
+      "phone": "+48987654321",
+      "childrenCount": 2
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 20,
+    "sort": {
+      "sorted": true,
+      "orders": [
+        {
+          "property": "lastName",
+          "direction": "ASC"
+        }
+      ]
+    }
+  },
+  "totalElements": 120,
+  "totalPages": 6,
+  "first": true,
+  "last": false
+}
+
+GET /api/guardians/{id}
+Description: Get guardian details by ID
+Roles: ADMIN, OPERATOR
+Response 200:
+json{
+  "id": "GRD-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@email.com",
+  "phone": "+48987654321",
+  "alternatePhone": "+48123456789",
+  "address": {
+    "street": "ul. Marszałkowska",
+    "houseNumber": "10",
+    "apartmentNumber": "5",
+    "postalCode": "00-001",
+    "city": "Warszawa"
+  },
+  "communicationPreference": "SMS",
+  "children": [
+    {
+      "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+      "firstName": "Anna",
+      "lastName": "Kowalska",
+      "age": 9,
+      "relationship": "PARENT",
+      "isPrimary": true
+    }
+  ],
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+
+PUT /api/guardians/{id}
+Description: Update guardian information
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@newemail.com",
+  "phone": "+48987654321",
+  "alternatePhone": "+48123456789",
+  "address": {
+    "street": "ul. Nowa",
+    "houseNumber": "20",
+    "apartmentNumber": "10",
+    "postalCode": "00-002",
+    "city": "Warszawa"
+  },
+  "communicationPreference": "EMAIL"
+}
+Response 200:
+json{
+  "id": "GRD-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@newemail.com",
+  "updatedAt": "2025-01-15T11:00:00Z"
+}
+
+POST /api/guardians/{guardianId}/children/{childId}
+Description: Assign guardian to child
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "relationship": "PARENT",
+  "isPrimary": true,
+  "canPickup": true,
+  "canAuthorize": true
+}
+Response 201:
+json{
+  "guardianId": "GRD-550e8400-e29b-41d4-a716-446655440000",
+  "childId": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "relationship": "PARENT",
+  "isPrimary": true,
+  "canPickup": true,
+  "canAuthorize": true,
+  "createdAt": "2025-01-15T10:30:00Z"
+}
+
+DELETE /api/guardians/{guardianId}/children/{childId}
+Description: Remove guardian assignment from child
+Roles: ADMIN, OPERATOR
+Response 204: No content
+
+SCHEDULES
+POST /api/children/{childId}/schedules
+Description: Create schedule for child
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "name": "Do szkoły",
+  "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+  "pickupTime": "07:30",
+  "pickupAddress": {
+    "label": "Dom",
+    "street": "ul. Słoneczna",
+    "houseNumber": "15",
+    "apartmentNumber": "5",
+    "postalCode": "00-001",
+    "city": "Warszawa"
+  },
+  "dropoffTime": "08:15",
+  "dropoffAddress": {
+    "label": "Szkoła",
+    "street": "ul. Piękna",
+    "houseNumber": "5",
+    "postalCode": "00-123",
+    "city": "Warszawa"
+  },
+  "specialInstructions": "Dzwonek przy furtce, zawsze dzwonić przed przyjazdem"
+}
+Response 201:
+json{
+  "id": "SCH-550e8400-e29b-41d4-a716-446655440000",
+  "childId": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "name": "Do szkoły",
+  "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+  "pickupTime": "07:30",
+  "pickupAddress": {
+    "label": "Dom",
+    "street": "ul. Słoneczna",
+    "houseNumber": "15",
+    "apartmentNumber": "5",
+    "postalCode": "00-001",
+    "city": "Warszawa"
+  },
+  "dropoffTime": "08:15",
+  "dropoffAddress": {
+    "label": "Szkoła",
+    "street": "ul. Piękna",
+    "houseNumber": "5",
+    "postalCode": "00-123",
+    "city": "Warszawa"
+  },
+  "specialInstructions": "Dzwonek przy furtce, zawsze dzwonić przed przyjazdem",
+  "active": true,
+  "createdAt": "2025-01-15T10:30:00Z"
+}
+
+GET /api/children/{childId}/schedules
+Description: Get all schedules for child
+Roles: ADMIN, OPERATOR, GUARDIAN (own child only)
+Response 200:
+json{
+  "schedules": [
+    {
+      "id": "SCH-550e8400-e29b-41d4-a716-446655440000",
+      "name": "Do szkoły",
+      "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+      "pickupTime": "07:30",
+      "dropoffTime": "08:15",
+      "active": true
+    }
+  ]
+}
+
+PUT /api/schedules/{id}
+Description: Update schedule
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "name": "Do szkoły (zaktualizowane)",
+  "days": ["MONDAY", "WEDNESDAY", "FRIDAY"],
+  "pickupTime": "07:45",
+  "pickupAddress": {
+    "label": "Dom",
+    "street": "ul. Nowa",
+    "houseNumber": "20",
+    "apartmentNumber": "10",
+    "postalCode": "00-002",
+    "city": "Warszawa"
+  },
+  "dropoffTime": "08:30",
+  "dropoffAddress": {
+    "label": "Szkoła",
+    "street": "ul. Piękna",
+    "houseNumber": "5",
+    "postalCode": "00-123",
+    "city": "Warszawa"
+  },
+  "specialInstructions": "Zaktualizowane instrukcje",
+  "active": true
+}
+Response 200:
+json{
+  "id": "SCH-550e8400-e29b-41d4-a716-446655440000",
+  "name": "Do szkoły (zaktualizowane)",
+  "updatedAt": "2025-01-15T11:00:00Z"
+}
+
+DELETE /api/schedules/{id}
+Description: Delete schedule
+Roles: ADMIN, OPERATOR
+Response 204: No content
+
+ROUTES
+POST /api/routes
+Description: Create new route
+Roles: ADMIN, OPERATOR
+Request:
+json{
+  "routeName": "Trasa Mokotów A",
+  "date": "2025-01-20",
+  "driverId": "DRV-550e8400-e29b-41d4-a716-446655440000",
+  "vehicleId": "VEH-550e8400-e29b-41d4-a716-446655440000",
+  "estimatedStartTime": "07:30",
+  "estimatedEndTime": "09:00",
+  "children": [
+    {
+      "childId": "CH-550e8400-e29b-41d4-a716-446655440000",
+      "scheduleId": "SCH-550e8400-e29b-41d4-a716-446655440000",
+      "pickupOrder": 1,
+      "estimatedPickupTime": "07:35",
+      "estimatedDropoffTime": "08:15"
+    }
+  ]
+}
+Response 201:
+json{
+  "id": "RT-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "routeName": "Trasa Mokotów A",
+  "date": "2025-01-20",
+  "status": "PLANNED",
+  "driverId": "DRV-550e8400-e29b-41d4-a716-446655440000",
+  "vehicleId": "VEH-550e8400-e29b-41d4-a716-446655440000",
+  "estimatedStartTime": "07:30",
+  "estimatedEndTime": "09:00",
+  "childrenCount": 1,
+  "createdAt": "2025-01-15T10:30:00Z"
+}
+
+GET /api/routes
+Description: List routes with filtering and pagination
+Roles: ADMIN, OPERATOR, DRIVER (own routes only), GUARDIAN (routes with own children only)
+Query Parameters:
+
+date (optional): Filter by date (ISO format: YYYY-MM-DD)
+status (optional): PLANNED | IN_PROGRESS | COMPLETED | CANCELLED
+driverId (optional): Filter by driver ID
+page (optional, default: 0): Page number
+size (optional, default: 20, max: 100): Page size
+sort (optional, default: date,desc): Sort field and direction
+
+Response 200:
+json{
+  "content": [
+    {
+      "id": "RT-550e8400-e29b-41d4-a716-446655440000",
+      "routeName": "Trasa Mokotów A",
+      "date": "2025-01-20",
+      "status": "PLANNED",
+      "driver": {
+        "id": "DRV-550e8400-e29b-41d4-a716-446655440000",
+        "firstName": "Jan",
+        "lastName": "Kowalski"
+      },
+      "vehicle": {
+        "id": "VEH-550e8400-e29b-41d4-a716-446655440000",
+        "registrationNumber": "WAW 1234A",
+        "model": "Mercedes Sprinter"
+      },
+      "estimatedStartTime": "07:30",
+      "estimatedEndTime": "09:00",
+      "childrenCount": 5
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 20,
+    "sort": {
+      "sorted": true,
+      "orders": [
+        {
+          "property": "date",
+          "direction": "DESC"
+        }
+      ]
+    }
+  },
+  "totalElements": 150,
+  "totalPages": 8,
+  "first": true,
+  "last": false
+}
+
+GET /api/routes/{id}
+Description: Get route details by ID
+Roles: ADMIN, OPERATOR, DRIVER (own route only), GUARDIAN (if route contains own child)
+Response 200:
+json{
+  "id": "RT-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "routeName": "Trasa Mokotów A",
+  "date": "2025-01-20",
+  "status": "IN_PROGRESS",
+  "driver": {
+    "id": "DRV-550e8400-e29b-41d4-a716-446655440000",
+    "firstName": "Jan",
+    "lastName": "Kowalski",
+    "phone": "+48123456789"
+  },
+  "vehicle": {
+    "id": "VEH-550e8400-e29b-41d4-a716-446655440000",
+    "registrationNumber": "WAW 1234A",
+    "make": "Mercedes",
+    "model": "Sprinter",
+    "capacity": 12
+  },
+  "estimatedStartTime": "07:30",
+  "estimatedEndTime": "09:00",
+  "actualStartTime": "07:32",
+  "actualEndTime": null,
+  "children": [
+    {
+      "id": "CH-550e8400-e29b-41d4-a716-446655440000",
+      "firstName": "Anna",
+      "lastName": "Kowalska",
+      "pickupOrder": 1,
+      "pickupAddress": {
+        "label": "Dom",
+        "street": "ul. Słoneczna",
+        "houseNumber": "15",
+        "postalCode": "00-001",
+        "city": "Warszawa"
+      },
+      "dropoffAddress": {
+        "label": "Szkoła",
+        "street": "ul. Piękna",
+        "houseNumber": "5",
+        "postalCode": "00-123",
+        "city": "Warszawa"
+      },
+      "estimatedPickupTime": "07:35",
+      "estimatedDropoffTime": "08:15",
+      "actualPickupTime": "07:37",
+      "actualDropoffTime": null,
+      "status": "IN_VEHICLE",
+      "guardian": {
+        "firstName": "Maria",
+        "lastName": "Kowalska",
+        "phone": "+48987654321"
+      }
+    }
+  ],
+  "notes": [
+    {
+      "id": "NOTE-550e8400-e29b-41d4-a716-446655440000",
+      "author": "Jan Kowalski",
+      "content": "Trasa rozpoczęta o czasie",
+      "createdAt": "2025-01-20T07:32:00Z"
+    }
+  ],
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-20T07:32:00Z"
+}
+
+PATCH /api/routes/{id}/status
+Description: Update route status
+Roles: ADMIN, OPERATOR, DRIVER (own route only)
+Request:
+json{
+  "status": "IN_PROGRESS",
+  "actualStartTime": "2025-01-20T07:32:00Z"
+}
+Allowed status transitions:
+
+PLANNED → IN_PROGRESS
+IN_PROGRESS → COMPLETED
+PLANNED → CANCELLED
+IN_PROGRESS → CANCELLED
+
+Response 200:
+json{
+  "id": "RT-550e8400-e29b-41d4-a716-446655440000",
+  "status": "IN_PROGRESS",
+  "actualStartTime": "2025-01-20T07:32:00Z",
+  "updatedAt": "2025-01-20T07:32:00Z"
+}
+
+PATCH /api/routes/{routeId}/children/{childId}/status
+Description: Update child status in route
+Roles: ADMIN, OPERATOR, DRIVER (own route only)
+Request:
+json{
+  "status": "IN_VEHICLE",
+  "actualPickupTime": "2025-01-20T07:37:00Z"
+}
+Allowed status values:
+
+PENDING - waiting for pickup
+IN_VEHICLE - picked up, in vehicle
+DELIVERED - delivered to destination
+ABSENT - child was absent
+
+Response 200:
+json{
+  "childId": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "status": "IN_VEHICLE",
+  "actualPickupTime": "2025-01-20T07:37:00Z",
+  "updatedAt": "2025-01-20T07:37:00Z"
+}
+
+POST /api/routes/{id}/notes
+Description: Add note to route
+Roles: ADMIN, OPERATOR, DRIVER (own route only)
+Request:
+json{
+  "content": "Opóźnienie 10 minut z powodu korków na Marszałkowskiej"
+}
+Response 201:
+json{
+  "id": "NOTE-550e8400-e29b-41d4-a716-446655440000",
+  "routeId": "RT-550e8400-e29b-41d4-a716-446655440000",
+  "author": "Jan Kowalski",
+  "content": "Opóźnienie 10 minut z powodu korków na Marszałkowskiej",
+  "createdAt": "2025-01-20T07:45:00Z"
+}
+
+VEHICLES
+POST /api/vehicles
+Description: Create new vehicle
+Roles: ADMIN
+Request:
+json{
+  "registrationNumber": "WAW 1234A",
+  "make": "Mercedes",
+  "model": "Sprinter",
+  "year": 2022,
+  "vehicleType": "MICROBUS",
+  "capacity": {
+    "totalSeats": 12,
+    "wheelchairSpaces": 2,RetryMSContinuejson    "childSeats": 10
+  },
+  "specialEquipment": ["Wheelchair lift", "Air conditioning"],
+  "insurance": {
+    "policyNumber": "POL-2024-12345",
+    "validUntil": "2025-12-31",
+    "insurer": "PZU"
+  },
+  "technicalInspection": {
+    "validUntil": "2025-06-30",
+    "inspectionStation": "Stacja Kontroli Pojazdów Warszawa"
+  }
+}
+Response 201:
+json{
+  "id": "VEH-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "registrationNumber": "WAW 1234A",
+  "make": "Mercedes",
+  "model": "Sprinter",
+  "year": 2022,
+  "vehicleType": "MICROBUS",
+  "capacity": {
+    "totalSeats": 12,
+    "wheelchairSpaces": 2,
+    "childSeats": 10
+  },
+  "specialEquipment": ["Wheelchair lift", "Air conditioning"],
+  "insurance": {
+    "policyNumber": "POL-2024-12345",
+    "validUntil": "2025-12-31",
+    "insurer": "PZU"
+  },
+  "technicalInspection": {
+    "validUntil": "2025-06-30",
+    "inspectionStation": "Stacja Kontroli Pojazdów Warszawa"
+  },
+  "status": "AVAILABLE",
+  "currentMileage": 0,
+  "createdAt": "2025-01-15T10:30:00Z"
+}
+
+GET /api/vehicles
+Description: List vehicles with filtering and pagination
+Roles: ADMIN, OPERATOR
+Query Parameters:
+
+status (optional): AVAILABLE | IN_ROUTE | MAINTENANCE | OUT_OF_SERVICE
+vehicleType (optional): BUS | MICROBUS | VAN
+page (optional, default: 0): Page number
+size (optional, default: 20, max: 100): Page size
+sort (optional, default: registrationNumber,asc): Sort field and direction
+
+Response 200:
+json{
+  "content": [
+    {
+      "id": "VEH-550e8400-e29b-41d4-a716-446655440000",
+      "registrationNumber": "WAW 1234A",
+      "make": "Mercedes",
+      "model": "Sprinter",
+      "year": 2022,
+      "vehicleType": "MICROBUS",
+      "status": "AVAILABLE",
+      "capacity": {
+        "totalSeats": 12,
+        "wheelchairSpaces": 2
+      },
+      "insurance": {
+        "validUntil": "2025-12-31"
+      },
+      "technicalInspection": {
+        "validUntil": "2025-06-30"
+      }
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 20,
+    "sort": {
+      "sorted": true,
+      "orders": [
+        {
+          "property": "registrationNumber",
+          "direction": "ASC"
+        }
+      ]
+    }
+  },
+  "totalElements": 60,
+  "totalPages": 3,
+  "first": true,
+  "last": false
+}
+
+GET /api/vehicles/{id}
+Description: Get vehicle details by ID
+Roles: ADMIN, OPERATOR
+Response 200:
+json{
+  "id": "VEH-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "registrationNumber": "WAW 1234A",
+  "make": "Mercedes",
+  "model": "Sprinter",
+  "year": 2022,
+  "vehicleType": "MICROBUS",
+  "capacity": {
+    "totalSeats": 12,
+    "wheelchairSpaces": 2,
+    "childSeats": 10
+  },
+  "specialEquipment": ["Wheelchair lift", "Air conditioning"],
+  "insurance": {
+    "policyNumber": "POL-2024-12345",
+    "validUntil": "2025-12-31",
+    "insurer": "PZU"
+  },
+  "technicalInspection": {
+    "validUntil": "2025-06-30",
+    "inspectionStation": "Stacja Kontroli Pojazdów Warszawa"
+  },
+  "status": "AVAILABLE",
+  "currentMileage": 45000,
+  "vin": "WDB9066361234567",
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+
+PUT /api/vehicles/{id}
+Description: Update vehicle information
+Roles: ADMIN
+Request:
+json{
+  "registrationNumber": "WAW 1234A",
+  "status": "AVAILABLE",
+  "currentMileage": 46000,
+  "insurance": {
+    "policyNumber": "POL-2024-12345",
+    "validUntil": "2026-12-31",
+    "insurer": "PZU"
+  },
+  "technicalInspection": {
+    "validUntil": "2026-06-30",
+    "inspectionStation": "Stacja Kontroli Pojazdów Warszawa"
+  }
+}
+Response 200:
+json{
+  "id": "VEH-550e8400-e29b-41d4-a716-446655440000",
+  "registrationNumber": "WAW 1234A",
+  "status": "AVAILABLE",
+  "currentMileage": 46000,
+  "updatedAt": "2025-01-15T11:00:00Z"
+}
+
+DELETE /api/vehicles/{id}
+Description: Delete vehicle (soft delete)
+Roles: ADMIN
+Response 204: No content
+
+DRIVERS
+POST /api/drivers
+Description: Create new driver
+Roles: ADMIN
+Request:
+json{
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@company.com",
+  "phone": "+48123456789",
+  "dateOfBirth": "1985-05-15",
+  "address": {
+    "street": "ul. Kwiatowa",
+    "houseNumber": "20",
+    "apartmentNumber": "15",
+    "postalCode": "02-520",
+    "city": "Warszawa"
+  },
+  "drivingLicense": {
+    "licenseNumber": "ABC123456",
+    "categories": ["B", "D"],
+    "validUntil": "2030-05-15"
+  },
+  "medicalCertificate": {
+    "validUntil": "2026-05-15",
+    "issueDate": "2024-05-15"
+  }
+}
+Response 201:
+json{
+  "id": "DRV-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@company.com",
+  "phone": "+48123456789",
+  "dateOfBirth": "1985-05-15",
+  "address": {
+    "street": "ul. Kwiatowa",
+    "houseNumber": "20",
+    "apartmentNumber": "15",
+    "postalCode": "02-520",
+    "city": "Warszawa"
+  },
+  "drivingLicense": {
+    "licenseNumber": "ABC123456",
+    "categories": ["B", "D"],
+    "validUntil": "2030-05-15"
+  },
+  "medicalCertificate": {
+    "validUntil": "2026-05-15",
+    "issueDate": "2024-05-15"
+  },
+  "status": "ACTIVE",
+  "createdAt": "2025-01-15T10:30:00Z"
+}
+
+GET /api/drivers
+Description: List drivers with filtering and pagination
+Roles: ADMIN, OPERATOR
+Query Parameters:
+
+status (optional): ACTIVE | INACTIVE | ON_LEAVE
+search (optional): Search by name or license number
+page (optional, default: 0): Page number
+size (optional, default: 20, max: 100): Page size
+sort (optional, default: lastName,asc): Sort field and direction
+
+Response 200:
+json{
+  "content": [
+    {
+      "id": "DRV-550e8400-e29b-41d4-a716-446655440000",
+      "firstName": "Jan",
+      "lastName": "Kowalski",
+      "phone": "+48123456789",
+      "email": "jan.kowalski@company.com",
+      "status": "ACTIVE",
+      "drivingLicense": {
+        "categories": ["B", "D"],
+        "validUntil": "2030-05-15"
+      },
+      "medicalCertificate": {
+        "validUntil": "2026-05-15"
+      },
+      "todayRoutesCount": 2
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 20,
+    "sort": {
+      "sorted": true,
+      "orders": [
+        {
+          "property": "lastName",
+          "direction": "ASC"
+        }
+      ]
+    }
+  },
+  "totalElements": 25,
+  "totalPages": 2,
+  "first": true,
+  "last": false
+}
+
+GET /api/drivers/{id}
+Description: Get driver details by ID
+Roles: ADMIN, OPERATOR
+Response 200:
+json{
+  "id": "DRV-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@company.com",
+  "phone": "+48123456789",
+  "dateOfBirth": "1985-05-15",
+  "address": {
+    "street": "ul. Kwiatowa",
+    "houseNumber": "20",
+    "apartmentNumber": "15",
+    "postalCode": "02-520",
+    "city": "Warszawa"
+  },
+  "drivingLicense": {
+    "licenseNumber": "ABC123456",
+    "categories": ["B", "D"],
+    "validUntil": "2030-05-15"
+  },
+  "medicalCertificate": {
+    "validUntil": "2026-05-15",
+    "issueDate": "2024-05-15"
+  },
+  "status": "ACTIVE",
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+
+PUT /api/drivers/{id}
+Description: Update driver information
+Roles: ADMIN
+Request:
+json{
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "email": "jan.kowalski@company.com",
+  "phone": "+48123456789",
+  "address": {
+    "street": "ul. Nowa",
+    "houseNumber": "30",
+    "postalCode": "02-521",
+    "city": "Warszawa"
+  },
+  "status": "ACTIVE",
+  "drivingLicense": {
+    "licenseNumber": "ABC123456",
+    "categories": ["B", "D", "D1"],
+    "validUntil": "2030-05-15"
+  },
+  "medicalCertificate": {
+    "validUntil": "2027-05-15",
+    "issueDate": "2025-05-15"
+  }
+}
+Response 200:
+json{
+  "id": "DRV-550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "Jan",
+  "lastName": "Kowalski",
+  "status": "ACTIVE",
+  "updatedAt": "2025-01-15T11:00:00Z"
+}
+
+DELETE /api/drivers/{id}
+Description: Delete driver (soft delete - sets status to INACTIVE)
+Roles: ADMIN
+Response 204: No content
+
+ENUMERATIONS
+UserRole
+ADMIN       - Company administrator with full access
+OPERATOR    - Company staff managing operations
+GUARDIAN    - Parent/caregiver with limited access to own children
+DRIVER      - Driver with access to assigned routes only
+ChildStatus
+ACTIVE              - Child actively using transport services
+INACTIVE            - Child no longer using services
+TEMPORARY_INACTIVE  - Child temporarily not using services (e.g., vacation, illness)
+DisabilityType
+INTELLECTUAL        - Niepełnosprawność intelektualna
+PHYSICAL            - Niepełnosprawność ruchowa
+SENSORY_VISUAL      - Niepełnosprawność wzrokowa
+SENSORY_HEARING     - Niepełnosprawność słuchowa
+AUTISM              - Spektrum autyzmu
+MULTIPLE            - Niepełnosprawność sprzężona
+SPEECH              - Zaburzenia mowy
+MENTAL              - Zaburzenia psychiczne
+GuardianRelationship
+PARENT              - Rodzic
+LEGAL_GUARDIAN      - Opiekun prawny
+GRANDPARENT         - Dziadek/Babcia
+RELATIVE            - Inny członek rodziny
+OTHER               - Inna osoba upoważniona
+CommunicationPreference
+SMS                 - Preferuje SMS
+EMAIL               - Preferuje email
+PHONE               - Preferuje telefon
+APP                 - Preferuje powiadomienia z aplikacji
+DayOfWeek
+MONDAY
+TUESDAY
+WEDNESDAY
+THURSDAY
+FRIDAY
+SATURDAY
+SUNDAY
+RouteStatus
+PLANNED         - Route is scheduled but not started
+IN_PROGRESS     - Route is currently active
+COMPLETED       - Route finished successfully
+CANCELLED       - Route was cancelled
+ChildInRouteStatus
+PENDING         - Waiting for pickup
+IN_VEHICLE      - Picked up and in vehicle
+DELIVERED       - Delivered to destination
+ABSENT          - Child was absent at pickup
+VehicleType
+BUS             - Large bus (20+ seats)
+MICROBUS        - Microbus (10-20 seats)
+VAN             - Van (up to 10 seats)
+VehicleStatus
+AVAILABLE       - Available for assignment
+IN_ROUTE        - Currently on a route
+MAINTENANCE     - Under maintenance
+OUT_OF_SERVICE  - Temporarily out of service
+DriverStatus
+ACTIVE          - Active driver
+INACTIVE        - No longer employed
+ON_LEAVE        - On leave (vacation, sick leave, etc.)
+
+ERROR RESPONSES
+All error responses follow this structure:
+400 Bad Request
+json{
+  "message": "Validation failed",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "errors": {
+    "firstName": "First name is required",
+    "birthDate": "Birth date must be in the past"
+  }
+}
+401 Unauthorized
+json{
+  "message": "Not authenticated",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+403 Forbidden
+json{
+  "message": "Access denied for role GUARDIAN",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+404 Not Found
+json{
+  "message": "Child CH-550e8400-e29b-41d4-a716-446655440000 not found",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+409 Conflict
+json{
+  "message": "Guardian already assigned to this child",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+500 Internal Server Error
+json{
+  "message": "Internal server error",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+
+VALIDATION RULES
+General
+
+All string fields are trimmed before validation
+Empty strings are treated as null
+UUIDs must be valid UUID v4 format
+Dates must be in ISO-8601 format (YYYY-MM-DD)
+Times must be in ISO-8601 format (HH:mm)
+DateTimes must be in ISO-8601 format with timezone (YYYY-MM-DDTHH:mm:ssZ)
+
+Children
+
+firstName: required, 1-255 characters
+lastName: required, 1-255 characters
+birthDate: required, must be in the past
+disability: required, at least one value, valid enum values only
+notes: optional, max 5000 characters
+
+Guardians
+
+firstName: required, 1-255 characters
+lastName: required, 1-255 characters
+email: required, valid email format, unique within company
+phone: required, valid phone format (E.164 recommended: +48123456789)
+alternatePhone: optional, valid phone format
+postalCode: required, format XX-XXX (Polish postal code)
+
+Schedules
+
+name: required, 1-255 characters
+days: required, at least one day, valid enum values only
+pickupTime: required, valid time format (HH:mm)
+dropoffTime: required, valid time format (HH:mm), must be after pickupTime
+pickupAddress: required, all address fields required except apartmentNumber
+dropoffAddress: required, all address fields required except apartmentNumber
+
+Routes
+
+routeName: required, 1-255 characters
+date: required, must be today or in the future
+driverId: required, must exist and be ACTIVE
+vehicleId: required, must exist and be AVAILABLE
+children: required, at least one child
+Vehicle capacity must not be exceeded
+
+Vehicles
+
+registrationNumber: required, unique within company, format: AAA 1234A or AAA 12345
+make: required, 1-100 characters
+model: required, 1-100 characters
+year: required, between 1990 and current year + 1
+capacity.totalSeats: required, minimum 1, maximum 50
+capacity.wheelchairSpaces: required, minimum 0, maximum totalSeats
+insurance.validUntil: required, must be in the future
+technicalInspection.validUntil: required, must be in the future
+
+Drivers
+
+firstName: required, 1-255 characters
+lastName: required, 1-255 characters
+email: required, valid email format, unique within company
+phone: required, valid phone format
+dateOfBirth: required, driver must be at least 21 years old
+drivingLicense.licenseNumber: required, unique within company
+drivingLicense.categories: required, at least one category, must include 'D' for buses
+drivingLicense.validUntil: required, must be in the future
+medicalCertificate.validUntil: required, must be in the future
+
+
+RATE LIMITING
+
+100 requests per minute per user
+429 Too Many Requests response when exceeded
+Rate limit headers included in all responses:
+
+X-RateLimit-Limit: Maximum requests per window
+X-RateLimit-Remaining: Remaining requests in current window
+X-RateLimit-Reset: Unix timestamp when limit resets
+
+
+
+
+PAGINATION
+All list endpoints support pagination with these parameters:
+
+page: Page number (0-indexed), default: 0
+size: Page size, default: 20, max: 100
+sort: Sort specification, format: field,direction (e.g., lastName,asc)
+
+Response includes:
+
+content: Array of items
+pageable: Pagination metadata
+totalElements: Total number of items
+totalPages: Total number of pages
+first: Boolean indicating if this is the first page
+last: Boolean indicating if this is the last page
+
+
+SECURITY HEADERS
+All responses include security headers:
+
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Content-Security-Policy: default-src 'self'
+
+
+END OF API SPECIFICATION

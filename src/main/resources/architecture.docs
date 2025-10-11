@@ -1,0 +1,649 @@
+Technical Documentation - Transport CRM System
+ Stack
+ Kotlin + Spring Boot 3.x
+ 
+ PostgreSQL 15+ with connection pooling (HikariCP)
+ 
+ React + TypeScript
+ 
+ Session-based Authentication with Redis: Stateful sessions managed by Spring Session, backed by a Redis instance. Each component (app, db, redis, frontend) will run in a separate Docker container on the same host.
+ 
+ Multi-tenant (company_id isolation)
+ 
+ Scale Requirements
+ 3500 trips/day per client
+ 
+ 60 vehicles per client
+ 
+ Multiple clients (companies) in single database
+ 
+ Expected response time: <200ms for 95th percentile
+ 
+ Database queries MUST use indexes on (company_id,...)
+ 
+ Security Requirements
+ SQL Injection Prevention
+ 
+ Kotlin
+ 
+ // ✅ ALWAYS use JPA/JPQL with parameters
+ interface ChildJpaRepository : JpaRepository<ChildEntity, String> {
+     fun findByIdAndCompanyId(id: String, companyId: String): ChildEntity?
+     // JPA generates: SELECT * FROM children WHERE id =? AND company_id =?
+ }
+ 
+ // ❌ NEVER construct raw SQL with string concatenation
+ // BAD: "SELECT * FROM children WHERE id = '$id'"
+ Multi-Tenant Isolation
+ 
+ Kotlin
+ 
+ // ✅ EVERY query MUST filter by company_id
+ suspend fun findById(companyId: CompanyId, id: ChildId): Child? {
+     return jpaRepository.findByIdAndCompanyId(id.value, companyId.value)?.toDomain()
+ }
+ 
+ // ❌ NEVER query without company_id filter
+ // BAD: jpaRepository.findById(id.value)
+ Authorization Roles
+ 
+ Kotlin
+ 
+ enum class UserRole {
+     ADMIN,           // Company admin - full access to company data
+     OPERATOR,        // Company staff - manage routes, children
+     GUARDIAN,        // Parent/caregiver - view own children only
+     DRIVER           // Driver - view assigned routes only
+ }
+ 
+ // Every user belongs to ONE company
+ data class UserPrincipal(
+     val userId: UserId,
+     val companyId: CompanyId,
+     val role: UserRole,
+     val guardianId: GuardianId? = null,  // if role = GUARDIAN
+     val driverId: DriverId? = null       // if role = DRIVER
+ )
+ Architecture: Vertical Slices
+ Directory Structure
+ 
+ src/main/kotlin/pl/transport/crm/
+ ├── child/
+ │   ├── create/
+ │   │   ├── CreateChildRequest.kt
+ │   │   ├── CreateChildCommand.kt
+ │   │   └── CreateChildHandler.kt
+ │   ├── list/
+ │   │   ├── ListChildrenQuery.kt
+ │   │   └── ListChildrenHandler.kt
+ │   ├── getbyid/
+ │   ├── update/
+ │   ├── delete/
+ │   ├── domain/
+ │   │   ├── Child.kt
+ │   │   ├── ChildId.kt
+ │   │   └── ChildRepository.kt
+ │   ├── infrastructure/
+ │   │   ├── ChildEntity.kt
+ │   │   ├── ChildJpaRepository.kt
+ │   │   └── ChildRepositoryImpl.kt
+ │   └── ChildController.kt
+ ├── guardian/
+ ├── route/
+ ├── vehicle/
+ ├── driver/
+ └── shared/
+     ├── domain/
+     │   ├── CompanyId.kt
+     │   ├── UserId.kt
+     │   └── Address.kt
+     ├── infrastructure/
+     │   ├── security/
+     │   │   ├── SecurityConfig.kt
+     │   │   └── AuthorizationService.kt
+     │   └── persistence/
+     └── api/
+         ├── BaseController.kt
+         └── ErrorResponse.kt
+ Code Patterns
+ 1. Handler (Business Logic)
+ Kotlin
+ 
+ @Component
+ class CreateChildHandler(
+     private val childRepository: ChildRepository,
+     private val guardianRepository: GuardianRepository,
+     private val authService: AuthorizationService
+ ) {
+     @Transactional
+     suspend fun handle(principal: UserPrincipal, command: CreateChildCommand): CreateChildResult {
+         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR)
+         authService.requireSameCompany(principal.companyId, command.companyId)
+ 
+         require(command.firstName.isNotBlank()) { "First name required" }
+         require(command.birthDate.isBefore(LocalDate.now())) { "Birth date must be past" }
+ 
+         val guardian = if (command.guardianId!= null) {
+             guardianRepository.findById(command.companyId, command.guardianId)
+                ?: throw GuardianNotFoundException(command.guardianId)
+         } else {
+             val newGuardian = Guardian.create(
+                 companyId = command.companyId,
+                 firstName = command.newGuardianData!!.firstName,
+                 lastName = command.newGuardianData.lastName,
+                 email = command.newGuardianData.email,
+                 phone = command.newGuardianData.phone
+             )
+             guardianRepository.save(newGuardian)
+         }
+ 
+         val child = Child.create(
+             companyId = command.companyId,
+             firstName = command.firstName,
+             lastName = command.lastName,
+             birthDate = command.birthDate,
+             disability = command.disability
+         )
+         childRepository.save(child)
+ 
+         guardianRepository.assignToChild(
+             companyId = command.companyId,
+             guardianId = guardian.id,
+             childId = child.id,
+             isPrimary = true
+         )
+ 
+         return CreateChildResult(child.id, guardian.id)
+     }
+ }
+ 2. Controller (HTTP Layer)
+ Kotlin
+ 
+ @RestController
+ @RequestMapping("/api/children")
+ class ChildController(
+     private val createHandler: CreateChildHandler,
+     private val listHandler: ListChildrenHandler,
+     private val getHandler: GetChildHandler
+ ) : BaseController() {
+ 
+     @PostMapping
+     suspend fun create(
+         @Valid @RequestBody request: CreateChildRequest
+     ): ResponseEntity<ChildResponse> {
+         val principal = getPrincipal()
+         val command = CreateChildCommand(
+             companyId = principal.companyId,
+             firstName = request.child.firstName,
+             lastName = request.child.lastName,
+             birthDate = request.child.birthDate,
+             disability = request.child.disability,
+             guardianId = request.guardian.existingId?.let { GuardianId(it) },
+             newGuardianData = request.guardian.toNewGuardianData()
+         )
+ 
+         val result = createHandler.handle(principal, command)
+         return ResponseEntity.status(CREATED).body(result.toResponse())
+     }
+ 
+     @GetMapping
+     suspend fun list(
+         @RequestParam status: ChildStatus?,
+         @PageableDefault pageable: Pageable
+     ): Page<ChildResponse> {
+         val principal = getPrincipal()
+         val query = ListChildrenQuery(
+             companyId = principal.companyId,
+             status = status,
+             pageable = pageable,
+             guardianId = if (principal.role == UserRole.GUARDIAN) principal.guardianId else null
+         )
+         return listHandler.handle(principal, query)
+     }
+ 
+     @GetMapping("/{id}")
+     suspend fun getById(@PathVariable id: String): ChildResponse {
+         val principal = getPrincipal()
+         val query = GetChildQuery(principal.companyId, ChildId(id))
+         return getHandler.handle(principal, query).toResponse()
+     }
+ }
+ 3. Authorization Service
+ Kotlin
+ 
+ @Component
+ class AuthorizationService {
+ 
+     fun requireRole(principal: UserPrincipal, vararg allowedRoles: UserRole) {
+         if (principal.role!in allowedRoles) {
+             throw ForbiddenException("Access denied for role ${principal.role}")
+         }
+     }
+ 
+     fun requireSameCompany(principalCompanyId: CompanyId, resourceCompanyId: CompanyId) {
+         if (principalCompanyId!= resourceCompanyId) {
+             throw ForbiddenException("Access denied to company ${resourceCompanyId.value}")
+         }
+     }
+ 
+     fun canAccessChild(principal: UserPrincipal, child: Child): Boolean {
+         if (principal.companyId!= child.companyId) return false
+ 
+         return when (principal.role) {
+             UserRole.ADMIN, UserRole.OPERATOR -> true
+             UserRole.GUARDIAN -> child.hasGuardian(principal.guardianId!!)
+             UserRole.DRIVER -> false
+         }
+     }
+ 
+     fun canAccessRoute(principal: UserPrincipal, route: Route): Boolean {
+         if (principal.companyId!= route.companyId) return false
+ 
+         return when (principal.role) {
+             UserRole.ADMIN, UserRole.OPERATOR -> true
+             UserRole.DRIVER -> route.driverId == principal.driverId
+             UserRole.GUARDIAN -> route.hasChildOfGuardian(principal.guardianId!!)
+         }
+     }
+ }
+ 4. Domain Model
+ Kotlin
+ 
+ data class Child(
+     val id: ChildId,
+     val companyId: CompanyId,
+     val firstName: String,
+     val lastName: String,
+     val birthDate: LocalDate,
+     val disability: Set<DisabilityType>,
+     val status: ChildStatus
+ ) {
+     fun age(): Int = Period.between(birthDate, LocalDate.now()).years
+ 
+     fun hasGuardian(guardianId: GuardianId): Boolean {
+         return guardianRepository.isAssignedToChild(companyId, guardianId, id)
+     }
+ 
+     companion object {
+         fun create(
+             companyId: CompanyId,
+             firstName: String,
+             lastName: String,
+             birthDate: LocalDate,
+             disability: Set<DisabilityType>
+         ): Child {
+             require(firstName.isNotBlank()) { "First name required" }
+             require(lastName.isNotBlank()) { "Last name required" }
+             require(birthDate.isBefore(LocalDate.now())) { "Birth date must be past" }
+             require(disability.isNotEmpty()) { "At least one disability type required" }
+ 
+             return Child(
+                 id = ChildId.generate(),
+                 companyId = companyId,
+                 firstName = firstName,
+                 lastName = lastName,
+                 birthDate = birthDate,
+                 disability = disability,
+                 status = ChildStatus.ACTIVE
+             )
+         }
+     }
+ }
+ 
+ @JvmInline
+ value class ChildId(val value: String) {
+     companion object {
+         fun generate() = ChildId("CH-${UUID.randomUUID()}")
+         fun from(value: String) = ChildId(value)
+     }
+ }
+ 5. Repository
+ Kotlin
+ 
+ interface ChildRepository {
+     suspend fun save(child: Child): Child
+     suspend fun findById(companyId: CompanyId, id: ChildId): Child?
+     suspend fun findAll(companyId: CompanyId, status: ChildStatus?, pageable: Pageable): Page<Child>
+     suspend fun findByGuardian(companyId: CompanyId, guardianId: GuardianId, pageable: Pageable): Page<Child>
+     suspend fun delete(companyId: CompanyId, id: ChildId)
+ }
+ 
+ @Repository
+ class ChildRepositoryImpl(
+     private val jpaRepository: ChildJpaRepository
+ ) : ChildRepository {
+ 
+     override suspend fun save(child: Child): Child = withContext(Dispatchers.IO) {
+         val entity = ChildEntity.fromDomain(child)
+         jpaRepository.save(entity).toDomain()
+     }
+ 
+     override suspend fun findById(companyId: CompanyId, id: ChildId): Child? = 
+         withContext(Dispatchers.IO) {
+             jpaRepository.findByIdAndCompanyId(id.value, companyId.value)?.toDomain()
+         }
+ 
+     override suspend fun findAll(
+         companyId: CompanyId, 
+         status: ChildStatus?, 
+         pageable: Pageable
+     ): Page<Child> = withContext(Dispatchers.IO) {
+         val page = if (status!= null) {
+             jpaRepository.findByCompanyIdAndStatus(companyId.value, status, pageable)
+         } else {
+             jpaRepository.findByCompanyId(companyId.value, pageable)
+         }
+         page.map { it.toDomain() }
+     }
+ 
+     override suspend fun findByGuardian(
+         companyId: CompanyId,
+         guardianId: GuardianId,
+         pageable: Pageable
+     ): Page<Child> = withContext(Dispatchers.IO) {
+         jpaRepository.findByCompanyIdAndGuardianId(
+             companyId.value, 
+             guardianId.value, 
+             pageable
+         ).map { it.toDomain() }
+     }
+ }
+ 
+ interface ChildJpaRepository : JpaRepository<ChildEntity, String> {
+     fun findByIdAndCompanyId(id: String, companyId: String): ChildEntity?
+ 
+     fun findByCompanyId(companyId: String, pageable: Pageable): Page<ChildEntity>
+ 
+     fun findByCompanyIdAndStatus(
+         companyId: String, 
+         status: ChildStatus, 
+         pageable: Pageable
+     ): Page<ChildEntity>
+ 
+     @Query("""
+         SELECT c FROM ChildEntity c 
+         JOIN GuardianAssignmentEntity ga ON c.id = ga.childId 
+         WHERE c.companyId = :companyId 
+         AND ga.guardianId = :guardianId
+     """)
+     fun findByCompanyIdAndGuardianId(
+         companyId: String, 
+         guardianId: String, 
+         pageable: Pageable
+     ): Page<ChildEntity>
+ }
+ 6. Entity (JPA)
+ Kotlin
+ 
+ @Entity
+ @Table(
+     name = "children",
+     indexes = [
+         Index(name = "idx_children_company", columnList = "company_id"),
+         Index(name = "idx_children_company_status", columnList = "company_id, status")
+     ]
+ )
+ class ChildEntity(
+     @Id 
+     @Column(length = 50)
+     val id: String,
+ 
+     @Column(name = "company_id", nullable = false, length = 50)
+     val companyId: String,
+ 
+     @Column(name = "first_name", nullable = false, length = 255)
+     val firstName: String,
+ 
+     @Column(name = "last_name", nullable = false, length = 255)
+     val lastName: String,
+ 
+     @Column(name = "birth_date", nullable = false)
+     val birthDate: LocalDate,
+ 
+     @Enumerated(EnumType.STRING)
+     @Column(nullable = false, length = 50)
+     val status: ChildStatus,
+ 
+     @Column(columnDefinition = "jsonb")
+     @Convert(converter = DisabilitySetConverter::class)
+     val disability: Set<DisabilityType>,
+ 
+     @Column(name = "created_at", nullable = false)
+     val createdAt: Instant = Instant.now(),
+ 
+     @Column(name = "updated_at", nullable = false)
+     val updatedAt: Instant = Instant.now()
+ ) {
+     fun toDomain() = Child(
+         id = ChildId(id),
+         companyId = CompanyId(companyId),
+         firstName = firstName,
+         lastName = lastName,
+         birthDate = birthDate,
+         disability = disability,
+         status = status
+     )
+ 
+     companion object {
+         fun fromDomain(child: Child) = ChildEntity(
+             id = child.id.value,
+             companyId = child.companyId.value,
+             firstName = child.firstName,
+             lastName = child.lastName,
+             birthDate = child.birthDate,
+             status = child.status,
+             disability = child.disability
+         )
+     }
+ }
+ Multi-Tenancy & Security
+ Session-based Authentication Flow
+ The application uses a stateful, session-based authentication model to ensure maximum security and control over user access. This approach allows for immediate session revocation, a critical requirement for the application's use case.
+ 
+ Deployment Note: For this implementation, Redis will run as a dedicated Docker container on the same host as the application, database, and frontend containers. This is a cost-driven decision. The production-recommended best practice is to use a separate, managed, and highly-available Redis instance to avoid a single point of failure and resource contention.
+ 
+ The authentication flow is as follows:
+ 
+ Login: The user submits credentials. The server validates them against the PostgreSQL database.
+ 
+ Session Creation: Upon successful validation, the server creates a session object containing the UserPrincipal and stores it in Redis with a unique, unguessable Session ID as the key.
+ 
+ Cookie Issuance: The server sends the Session ID back to the client in a secure, HttpOnly, SameSite=Strict cookie. The browser will automatically handle this cookie for all subsequent requests to the same domain.
+ 
+ Authenticated Requests: For every subsequent API call, the browser sends the cookie. The Spring Boot backend, using the spring-session-data-redis integration, automatically intercepts the Session ID, retrieves the session data from Redis, and populates the SecurityContext with the authenticated UserPrincipal.
+ 
+ Logout/Revocation: To log a user out or revoke access, the corresponding session is simply deleted from the Redis store. The next request with that Session ID will fail authentication.
+ 
+ Security Configuration
+ The authentication filter is handled by Spring Security's standard session management, which is configured to use Redis via spring-session-data-redis. The UserPrincipal is created during the login process, stored in the HttpSession, and then automatically retrieved from Redis on subsequent requests to populate the security context.
+ 
+ Kotlin
+ 
+ @Configuration
+ @EnableWebSecurity
+ @EnableRedisHttpSession // Enables Redis as the session store
+ class SecurityConfig {
+     //... other security configurations like password encoder, etc.
+ 
+     @Bean
+     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+         http
+             //... other configurations like csrf, cors
+            .sessionManagement { session ->
+                 session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+             }
+            .authorizeHttpRequests { auth ->
+                 auth.requestMatchers("/api/login").permitAll()
+                    .anyRequest().authenticated()
+             }
+         // Spring Session's SessionRepositoryFilter will automatically handle 
+         // session retrieval from Redis and populate the SecurityContext.
+         return http.build()
+     }
+ }
+ Base Controller
+ Kotlin
+ 
+ abstract class BaseController {
+ 
+     protected fun getPrincipal(): UserPrincipal {
+         val authentication = SecurityContextHolder.getContext().authentication
+         val principal = authentication?.principal
+         
+         if (principal is UserPrincipal) {
+             return principal
+         }
+         
+         // This might also be a UserDetails object in a standard Spring Security setup,
+         // which would then be cast to a custom implementation holding the UserPrincipal.
+         // For simplicity, we assume the principal object itself is our UserPrincipal.
+         throw UnauthorizedException("Invalid authentication principal")
+     }
+ }
+ Database Schema
+ SQL
+ 
+ CREATE TABLE children (
+     id VARCHAR(50) PRIMARY KEY,
+     company_id VARCHAR(50) NOT NULL,
+     first_name VARCHAR(255) NOT NULL,
+     last_name VARCHAR(255) NOT NULL,
+     birth_date DATE NOT NULL,
+     status VARCHAR(50) NOT NULL,
+     disability JSONB NOT NULL,
+     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+ 
+     CONSTRAINT fk_children_company 
+         FOREIGN KEY (company_id) 
+         REFERENCES companies(id) 
+         ON DELETE CASCADE
+ );
+ 
+ CREATE INDEX idx_children_company ON children(company_id);
+ CREATE INDEX idx_children_company_status ON children(company_id, status);
+ 
+ CREATE TABLE guardian_assignments (
+     id VARCHAR(50) PRIMARY KEY,
+     company_id VARCHAR(50) NOT NULL,
+     guardian_id VARCHAR(50) NOT NULL,
+     child_id VARCHAR(50) NOT NULL,
+     is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+ 
+     CONSTRAINT fk_assignment_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+     CONSTRAINT fk_assignment_guardian FOREIGN KEY (guardian_id) REFERENCES guardians(id) ON DELETE CASCADE,
+     CONSTRAINT fk_assignment_child FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE,
+     CONSTRAINT uq_guardian_child UNIQUE (guardian_id, child_id)
+ );
+ 
+ CREATE INDEX idx_assignments_company ON guardian_assignments(company_id);
+ CREATE INDEX idx_assignments_guardian ON guardian_assignments(company_id, guardian_id);
+ CREATE INDEX idx_assignments_child ON guardian_assignments(company_id, child_id);
+ Performance Optimization
+ Database Indexing
+ 
+ SQL
+ 
+ -- Every table MUST have composite index starting with company_id
+ CREATE INDEX idx_children_company ON children(company_id);
+ CREATE INDEX idx_children_company_status ON children(company_id, status);
+ CREATE INDEX idx_routes_company_date ON routes(company_id, date);
+ CREATE INDEX idx_routes_company_driver ON routes(company_id, driver_id);
+ Connection Pooling
+ 
+ YAML
+ 
+ spring:
+   datasource:
+     hikari:
+       maximum-pool-size: 20
+       minimum-idle: 5
+       connection-timeout: 10000
+       idle-timeout: 600000
+       max-lifetime: 1800000
+ Pagination
+ 
+ Kotlin
+ 
+ // ALWAYS use pagination for lists
+ fun findAll(
+     companyId: CompanyId,
+     pageable: Pageable
+ ): Page<Child>
+ 
+ // Default page size: 20
+ // Max page size: 100
+ Error Handling
+ Kotlin
+ 
+ @RestControllerAdvice
+ class GlobalExceptionHandler {
+ 
+     @ExceptionHandler(NotFoundException::class)
+     fun handleNotFound(ex: NotFoundException) = ResponseEntity
+        .status(NOT_FOUND)
+        .body(ErrorResponse(ex.message))
+ 
+     @ExceptionHandler(UnauthorizedException::class)
+     fun handleUnauthorized(ex: UnauthorizedException) = ResponseEntity
+        .status(UNAUTHORIZED)
+        .body(ErrorResponse(ex.message))
+ 
+     @ExceptionHandler(ForbiddenException::class)
+     fun handleForbidden(ex: ForbiddenException) = ResponseEntity
+        .status(FORBIDDEN)
+        .body(ErrorResponse(ex.message))
+ 
+     @ExceptionHandler(IllegalArgumentException::class)
+     fun handleIllegalArgument(ex: IllegalArgumentException) = ResponseEntity
+        .status(BAD_REQUEST)
+        .body(ErrorResponse(ex.message))
+ 
+     @ExceptionHandler(Exception::class)
+     fun handleGeneral(ex: Exception): ResponseEntity<ErrorResponse> {
+         logger.error("Unexpected error", ex)
+         return ResponseEntity
+            .status(INTERNAL_SERVER_ERROR)
+            .body(ErrorResponse("Internal server error"))
+     }
+ }
+ 
+ data class ErrorResponse(
+     val message: String?,
+     val timestamp: Instant = Instant.now()
+ )
+ 
+ open class NotFoundException(message: String) : RuntimeException(message)
+ class ChildNotFoundException(id: ChildId) : NotFoundException("Child ${id.value} not found")
+ class GuardianNotFoundException(id: GuardianId) : NotFoundException("Guardian ${id.value} not found")
+ class UnauthorizedException(message: String) : RuntimeException(message)
+ class ForbiddenException(message: String) : RuntimeException(message)
+ Key Rules
+ EVERY query filters by company_id first
+ 
+ EVERY handler checks authorization via AuthorizationService
+ 
+ NO raw SQL - use JPA with parameterized queries only
+ 
+ Domain models separate from JPA entities
+ 
+ Use suspend functions with Dispatchers.IO for DB access
+ 
+ UserPrincipal passed to every handler as first parameter
+ 
+ Use value classes for all IDs (@JvmInline value class)
+ 
+ All business logic in handlers, not in controllers
+ 
+ Direct synchronous calls only - no async events
+ 
+ Production-ready code only - no TODO, no comments
+ 
+ All database tables have composite indexes starting with company_id
+ 
+ Guardian can only see their own children
+ 
+ Driver can only see assigned routes
+ 
+ Admin/Operator can see all company data
