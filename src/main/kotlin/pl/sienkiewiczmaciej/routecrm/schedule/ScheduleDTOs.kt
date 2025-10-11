@@ -6,8 +6,6 @@ import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
-import pl.sienkiewiczmaciej.routecrm.guardian.AddressRequest
-import pl.sienkiewiczmaciej.routecrm.guardian.AddressResponse
 import pl.sienkiewiczmaciej.routecrm.schedule.create.CreateScheduleCommand
 import pl.sienkiewiczmaciej.routecrm.schedule.create.CreateScheduleResult
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.DayOfWeek
