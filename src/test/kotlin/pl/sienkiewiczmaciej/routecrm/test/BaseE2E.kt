@@ -95,9 +95,9 @@ abstract class BaseE2ETest {
     protected data class TestUser(val id: String, val companyId: String, val email: String, val role: String)
 
     protected fun createTestCompany(): TestCompany {
-        val id = "CMP-test-${System.currentTimeMillis()}"
+        val id = "CMP-test"
         jdbcTemplate.update(
-            "INSERT INTO companies (id, name, created_at, updated_at) VALUES (?, ?, NOW(), NOW())",
+            "INSERT INTO companies (id, name, created_at, updated_at) VALUES (?, ?, NOW(), NOW()) ON CONFLICT (id) DO NOTHING",
             id, "Test Company"
         )
         return TestCompany(id, "Test Company")

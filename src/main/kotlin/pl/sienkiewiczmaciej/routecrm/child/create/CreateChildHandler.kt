@@ -39,7 +39,8 @@ data class CreateChildCommand(
 
 data class CreateChildResult(
     val childId: ChildId,
-    val guardianId: GuardianId
+    val guardianId: GuardianId,
+    val child: Child
 )
 
 @Component
@@ -108,7 +109,8 @@ class CreateChildHandler(
 
         return CreateChildResult(
             childId = savedChild.id,
-            guardianId = guardian.id
+            guardianId = guardian.id,
+            child = savedChild
         )
     }
 }
