@@ -68,6 +68,36 @@ object TestDataFactory {
         }
     )
 
+    fun driverRequest(
+        firstName: String = "Jan",
+        lastName: String = "Nowak",
+        email: String = "jan.nowak${System.currentTimeMillis()}@example.com",
+        phone: String = "+48123456789",
+        dateOfBirth: String = "1985-05-15"
+    ) = mapOf(
+        "firstName" to firstName,
+        "lastName" to lastName,
+        "email" to email,
+        "phone" to phone,
+        "dateOfBirth" to dateOfBirth,
+        "address" to mapOf(
+            "street" to "ul. Kwiatowa",
+            "houseNumber" to "20",
+            "apartmentNumber" to "15",
+            "postalCode" to "02-520",
+            "city" to "Warszawa"
+        ),
+        "drivingLicense" to mapOf(
+            "licenseNumber" to "ABC${System.currentTimeMillis()}",
+            "categories" to listOf("B", "D"),
+            "validUntil" to LocalDate.now().plusYears(5).toString()
+        ),
+        "medicalCertificate" to mapOf(
+            "validUntil" to LocalDate.now().plusYears(2).toString(),
+            "issueDate" to LocalDate.now().minusDays(1).toString()
+        )
+    )
+
     fun driverUpdateRequest(
         firstName: String = "Jan",
         lastName: String = "Nowak",
@@ -95,6 +125,88 @@ object TestDataFactory {
         "medicalCertificate" to mapOf(
             "validUntil" to LocalDate.now().plusYears(2).toString(),
             "issueDate" to LocalDate.now().minusDays(1).toString()
+        )
+    )
+
+    fun vehicleRequest(
+        registrationNumber: String = "WAW 1234A",
+        make: String = "Mercedes",
+        model: String = "Sprinter",
+        year: Int = 2022,
+        vehicleType: String = "MICROBUS",
+        totalSeats: Int = 12,
+        wheelchairSpaces: Int = 2,
+        childSeats: Int = 10,
+        insuranceValidUntil: String = LocalDate.now().plusYears(1).toString(),
+        technicalInspectionValidUntil: String = LocalDate.now().plusMonths(6).toString()
+    ) = mapOf(
+        "registrationNumber" to registrationNumber,
+        "make" to make,
+        "model" to model,
+        "year" to year,
+        "vehicleType" to vehicleType,
+        "capacity" to mapOf(
+            "totalSeats" to totalSeats,
+            "wheelchairSpaces" to wheelchairSpaces,
+            "childSeats" to childSeats
+        ),
+        "specialEquipment" to listOf("Wheelchair lift", "Air conditioning"),
+        "insurance" to mapOf(
+            "policyNumber" to "POL-2024-${System.currentTimeMillis()}",
+            "validUntil" to insuranceValidUntil,
+            "insurer" to "PZU"
+        ),
+        "technicalInspection" to mapOf(
+            "validUntil" to technicalInspectionValidUntil,
+            "inspectionStation" to "Stacja Kontroli Pojazdów Warszawa"
+        ),
+        "vin" to "WDB9066361234567"
+    )
+
+    fun vehicleRequestWithoutDocuments(
+        registrationNumber: String = "WAW 5555E",
+        make: String = "Mercedes",
+        model: String = "Sprinter",
+        year: Int = 2022,
+        vehicleType: String = "MICROBUS",
+        totalSeats: Int = 12,
+        wheelchairSpaces: Int = 2,
+        childSeats: Int = 10
+    ) = mapOf(
+        "registrationNumber" to registrationNumber,
+        "make" to make,
+        "model" to model,
+        "year" to year,
+        "vehicleType" to vehicleType,
+        "capacity" to mapOf(
+            "totalSeats" to totalSeats,
+            "wheelchairSpaces" to wheelchairSpaces,
+            "childSeats" to childSeats
+        ),
+        "specialEquipment" to listOf("Wheelchair lift", "Air conditioning"),
+        "insurance" to null,
+        "technicalInspection" to null,
+        "vin" to "WDB9066361234567"
+    )
+
+    fun vehicleUpdateRequest(
+        registrationNumber: String = "WAW 1234A",
+        status: String = "AVAILABLE",
+        currentMileage: Int = 45000,
+        insuranceValidUntil: String = LocalDate.now().plusYears(1).toString(),
+        technicalInspectionValidUntil: String = LocalDate.now().plusMonths(6).toString()
+    ) = mapOf(
+        "registrationNumber" to registrationNumber,
+        "status" to status,
+        "currentMileage" to currentMileage,
+        "insurance" to mapOf(
+            "policyNumber" to "POL-2024-${System.currentTimeMillis()}",
+            "validUntil" to insuranceValidUntil,
+            "insurer" to "PZU"
+        ),
+        "technicalInspection" to mapOf(
+            "validUntil" to technicalInspectionValidUntil,
+            "inspectionStation" to "Stacja Kontroli Pojazdów Warszawa"
         )
     )
 
@@ -132,35 +244,5 @@ object TestDataFactory {
     ) = mapOf(
         "exceptionDate" to exceptionDate,
         "notes" to notes
-    )
-
-    fun driverRequest(
-        firstName: String = "Jan",
-        lastName: String = "Nowak",
-        email: String = "jan.nowak${System.currentTimeMillis()}@example.com",
-        phone: String = "+48123456789",
-        dateOfBirth: String = "1985-05-15"
-    ) = mapOf(
-        "firstName" to firstName,
-        "lastName" to lastName,
-        "email" to email,
-        "phone" to phone,
-        "dateOfBirth" to dateOfBirth,
-        "address" to mapOf(
-            "street" to "ul. Kwiatowa",
-            "houseNumber" to "20",
-            "apartmentNumber" to "15",
-            "postalCode" to "02-520",
-            "city" to "Warszawa"
-        ),
-        "drivingLicense" to mapOf(
-            "licenseNumber" to "ABC${System.currentTimeMillis()}",
-            "categories" to listOf("B", "D"),
-            "validUntil" to LocalDate.now().plusYears(5).toString()
-        ),
-        "medicalCertificate" to mapOf(
-            "validUntil" to LocalDate.now().plusYears(2).toString(),
-            "issueDate" to LocalDate.now().minusDays(1).toString()
-        )
     )
 }

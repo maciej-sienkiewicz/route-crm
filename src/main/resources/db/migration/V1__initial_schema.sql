@@ -199,20 +199,20 @@ CREATE TABLE vehicles (
                           registration_number VARCHAR(20) NOT NULL,
                           make VARCHAR(100) NOT NULL,
                           model VARCHAR(100) NOT NULL,
-                          year INTEGER NOT NULL,
+                          year INT NOT NULL,
                           vehicle_type VARCHAR(20) NOT NULL,
-                          vin VARCHAR(17),
-                          capacity_total_seats INTEGER NOT NULL,
-                          capacity_wheelchair_spaces INTEGER NOT NULL,
-                          capacity_child_seats INTEGER NOT NULL,
-                          special_equipment JSONB,
-                          insurance_policy_number VARCHAR(100) NOT NULL,
-                          insurance_valid_until DATE NOT NULL,
-                          insurance_insurer VARCHAR(255) NOT NULL,
-                          technical_inspection_valid_until DATE NOT NULL,
-                          technical_inspection_station VARCHAR(255) NOT NULL,
+                          capacity_total_seats INT NOT NULL,
+                          capacity_wheelchair_spaces INT NOT NULL,
+                          capacity_child_seats INT NOT NULL,
+                          special_equipment JSONB NOT NULL DEFAULT '[]'::jsonb,
+                          insurance_policy_number VARCHAR(100),
+                          insurance_valid_until DATE,
+                          insurance_insurer VARCHAR(255),
+                          technical_inspection_valid_until DATE,
+                          technical_inspection_station VARCHAR(255),
                           status VARCHAR(20) NOT NULL,
-                          current_mileage INTEGER NOT NULL DEFAULT 0,
+                          current_mileage INT NOT NULL DEFAULT 0,
+                          vin VARCHAR(17),
                           created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                           updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
@@ -220,12 +220,41 @@ CREATE TABLE vehicles (
                               FOREIGN KEY (company_id)
                                   REFERENCES companies(id)
                                   ON DELETE CASCADE,
-                          CONSTRAINT uq_vehicles_company_registration UNIQUE (company_id, registration_number)
+
+                          CONSTRAINT chk_vehicle_type
+                              CHECK (vehicle_type IN ('BUS', 'MICROBUS', 'VAN')),
+
+                          CONSTRAINT chk_vehicle_status
+                              CHECK (status IN ('AVAILABLE', 'IN_ROUTE', 'MAINTENANCE', 'OUT_OF_SERVICE')),
+
+                          CONSTRAINT chk_vehicle_year
+                              CHECK (year >= 1990 AND year <= EXTRACT(YEAR FROM CURRENT_DATE) + 1),
+
+    CONSTRAINT chk_vehicle_capacity_total
+        CHECK (capacity_total_seats >= 1 AND capacity_total_seats <= 50),
+
+    CONSTRAINT chk_vehicle_capacity_wheelchair
+        CHECK (capacity_wheelchair_spaces >= 0 AND capacity_wheelchair_spaces <= capacity_total_seats),
+
+    CONSTRAINT chk_vehicle_capacity_child
+        CHECK (capacity_child_seats >= 0 AND capacity_child_seats <= capacity_total_seats),
+
+    CONSTRAINT chk_vehicle_mileage
+        CHECK (current_mileage >= 0)
 );
 
 CREATE INDEX idx_vehicles_company ON vehicles(company_id);
 CREATE INDEX idx_vehicles_company_status ON vehicles(company_id, status);
 CREATE INDEX idx_vehicles_company_type ON vehicles(company_id, vehicle_type);
+CREATE UNIQUE INDEX idx_vehicles_company_reg ON vehicles(company_id, registration_number);
+
+COMMENT ON TABLE vehicles IS 'Transport vehicles used for child transportation';
+COMMENT ON COLUMN vehicles.registration_number IS 'Vehicle registration number (license plate)';
+COMMENT ON COLUMN vehicles.special_equipment IS 'JSON array of special equipment installed in vehicle';
+COMMENT ON COLUMN vehicles.vin IS 'Vehicle Identification Number (optional)';
+COMMENT ON COLUMN vehicles.current_mileage IS 'Current odometer reading in kilometers';
+COMMENT ON COLUMN vehicles.insurance_policy_number IS 'Insurance policy number (optional - vehicle can be registered without insurance documents)';
+COMMENT ON COLUMN vehicles.technical_inspection_valid_until IS 'Technical inspection valid until date (optional - allows for registration before inspection)';
 
 -- Routes table
 CREATE TABLE routes (
