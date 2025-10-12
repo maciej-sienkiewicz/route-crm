@@ -8,6 +8,7 @@ import pl.sienkiewiczmaciej.routecrm.scheduleexception.create.CreateScheduleExce
 import pl.sienkiewiczmaciej.routecrm.scheduleexception.list.ScheduleExceptionListItem
 import pl.sienkiewiczmaciej.routecrm.scheduleexception.stats.ChildExceptionStats
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
 import java.time.Instant
 import java.time.LocalDate
@@ -37,13 +38,13 @@ data class ScheduleExceptionResponse(
     val createdAt: Instant
 ) {
     companion object {
-        fun from(result: CreateScheduleExceptionResult) = ScheduleExceptionResponse(
+        fun from(result: CreateScheduleExceptionResult, principal: UserPrincipal) = ScheduleExceptionResponse(
             id = result.id.value,
             scheduleId = result.scheduleId.value,
             childId = result.childId.value,
             exceptionDate = result.exceptionDate,
             notes = result.notes,
-            createdByRole = UserRole.GUARDIAN,
+            createdByRole = principal.role,
             createdAt = result.createdAt
         )
 

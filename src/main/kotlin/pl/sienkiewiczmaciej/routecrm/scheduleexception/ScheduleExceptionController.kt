@@ -39,7 +39,7 @@ class ScheduleExceptionController(
         val principal = getPrincipal()
         val command = request.toCommand(principal.companyId, ScheduleId.from(scheduleId))
         val result = createHandler.handle(principal, command)
-        return ResponseEntity.status(CREATED).body(ScheduleExceptionResponse.from(result))
+        return ResponseEntity.status(CREATED).body(ScheduleExceptionResponse.from(result, principal))
     }
 
     @GetMapping("/schedules/{scheduleId}/exceptions")

@@ -1,5 +1,6 @@
 package pl.sienkiewiczmaciej.routecrm.schedule
 
+import com.fasterxml.jackson.annotation.JsonFormat
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
@@ -18,6 +19,7 @@ import pl.sienkiewiczmaciej.routecrm.schedule.update.UpdateScheduleResult
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import java.time.Instant
 import java.time.LocalTime
+import java.time.temporal.ChronoUnit
 
 data class ScheduleAddressRequest(
     @field:Size(max = 100)
@@ -113,8 +115,10 @@ data class ScheduleResponse(
     val companyId: String,
     val name: String,
     val days: Set<DayOfWeek>,
+    @JsonFormat(pattern = "HH:mm")
     val pickupTime: LocalTime,
     val pickupAddress: ScheduleAddressResponse,
+    @JsonFormat(pattern = "HH:mm")
     val dropoffTime: LocalTime,
     val dropoffAddress: ScheduleAddressResponse,
     val specialInstructions: String?,
@@ -143,7 +147,9 @@ data class ScheduleListResponse(
     val id: String,
     val name: String,
     val days: Set<DayOfWeek>,
+    @JsonFormat(pattern = "HH:mm")
     val pickupTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
     val dropoffTime: LocalTime,
     val active: Boolean
 ) {
@@ -165,8 +171,10 @@ data class ScheduleDetailResponse(
     val childId: String,
     val name: String,
     val days: Set<DayOfWeek>,
+    @JsonFormat(pattern = "HH:mm")
     val pickupTime: LocalTime,
     val pickupAddress: ScheduleAddressResponse,
+    @JsonFormat(pattern = "HH:mm")
     val dropoffTime: LocalTime,
     val dropoffAddress: ScheduleAddressResponse,
     val specialInstructions: String?,

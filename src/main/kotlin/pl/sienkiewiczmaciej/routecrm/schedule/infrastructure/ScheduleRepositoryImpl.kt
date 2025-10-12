@@ -3,6 +3,7 @@ package pl.sienkiewiczmaciej.routecrm.schedule.infrastructure
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.Schedule
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
@@ -35,9 +36,12 @@ class ScheduleRepositoryImpl(
             jpaRepository.countActiveByCompanyIdAndChildId(companyId.value, childId.value)
         }
 
+    @Transactional
     override suspend fun delete(companyId: CompanyId, id: ScheduleId) {
         withContext(Dispatchers.IO) {
-            jpaRepository.deleteByIdAndCompanyId(id.value, companyId.value)
+            val entity = jpaRepository.findByIdAndCompanyId(id.value, companyId.value)
+                ?: return@withContext
+            jpaRepository.delete(entity)
         }
     }
 }

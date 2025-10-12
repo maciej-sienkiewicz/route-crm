@@ -83,7 +83,9 @@ class ScheduleExceptionRepositoryImpl(
 
     override suspend fun delete(companyId: CompanyId, id: ScheduleExceptionId) {
         withContext(Dispatchers.IO) {
-            jpaRepository.deleteByIdAndCompanyId(id.value, companyId.value)
+            val entity = jpaRepository.findByIdAndCompanyId(id.value, companyId.value)
+                ?: return@withContext
+            jpaRepository.delete(entity)
         }
     }
 }

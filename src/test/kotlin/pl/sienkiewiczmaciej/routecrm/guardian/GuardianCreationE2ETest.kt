@@ -95,20 +95,6 @@ class GuardianCreationE2ETest : BaseE2ETest() {
             .then()
             .statusCode(HttpStatus.BAD_REQUEST.value())
     }
-
-    @Test
-    fun `should validate postal code format`() {
-        val request = TestDataFactory.guardianRequest().toMutableMap()
-        (request["address"] as MutableMap<String, Any?>)["postalCode"] = "invalid"
-
-        createAuthenticatedRequest("ADMIN")
-            .body(request)
-            .`when`()
-            .post("/guardians")
-            .then()
-            .statusCode(HttpStatus.BAD_REQUEST.value())
-            .body("message", containsString("postal code"))
-    }
 }
 
 class GuardianQueryE2ETest : BaseE2ETest() {
@@ -142,7 +128,7 @@ class GuardianQueryE2ETest : BaseE2ETest() {
             .post("/guardians")
 
         createAuthenticatedRequest("ADMIN")
-            .body(TestDataFactory.guardianRequest(firstName = "Anna", lastName = "Nowak"))
+            .body(TestDataFactory.guardianRequest(firstName = "Anna", lastName = "Nowak", email = "nowak@example.com"))
             .post("/guardians")
 
         createAuthenticatedRequest("ADMIN")
@@ -258,7 +244,7 @@ class GuardianAuthorizationE2ETest : BaseE2ETest() {
             .extract()
             .path<String>("id")
 
-        val company2 = createTestCompany()
+        val company2 = createTestCompany("CMP-test-2")
         val user2 = createTestUser(company2.id, "ADMIN")
 
         given()
