@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
 import java.time.LocalDate
+import java.time.LocalTime
 
 interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
     fun findByIdAndCompanyId(id: String, companyId: String): RouteEntity?
@@ -46,6 +47,44 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         @Param("date") date: LocalDate?,
         pageable: Pageable
     ): Page<RouteEntity>
+
+    @Query("""
+        SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
+        FROM RouteEntity r
+        WHERE r.companyId = :companyId
+        AND r.driverId = :driverId
+        AND r.date = :date
+        AND r.status IN ('PLANNED', 'IN_PROGRESS')
+        AND (
+            (r.estimatedStartTime < :endTime AND r.estimatedEndTime > :startTime)
+        )
+    """)
+    fun existsDriverConflict(
+        @Param("companyId") companyId: String,
+        @Param("driverId") driverId: String,
+        @Param("date") date: LocalDate,
+        @Param("startTime") startTime: LocalTime,
+        @Param("endTime") endTime: LocalTime
+    ): Boolean
+
+    @Query("""
+        SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
+        FROM RouteEntity r
+        WHERE r.companyId = :companyId
+        AND r.vehicleId = :vehicleId
+        AND r.date = :date
+        AND r.status IN ('PLANNED', 'IN_PROGRESS')
+        AND (
+            (r.estimatedStartTime < :endTime AND r.estimatedEndTime > :startTime)
+        )
+    """)
+    fun existsVehicleConflict(
+        @Param("companyId") companyId: String,
+        @Param("vehicleId") vehicleId: String,
+        @Param("date") date: LocalDate,
+        @Param("startTime") startTime: LocalTime,
+        @Param("endTime") endTime: LocalTime
+    ): Boolean
 }
 
 interface RouteChildJpaRepository : JpaRepository<RouteChildEntity, String> {
@@ -62,6 +101,26 @@ interface RouteChildJpaRepository : JpaRepository<RouteChildEntity, String> {
     fun countByCompanyIdAndRouteId(companyId: String, routeId: String): Int
 
     fun deleteByCompanyIdAndRouteId(companyId: String, routeId: String)
+
+    @Query("""
+        SELECT CASE WHEN COUNT(rc) > 0 THEN true ELSE false END
+        FROM RouteChildEntity rc
+        JOIN RouteEntity r ON rc.routeId = r.id
+        WHERE rc.companyId = :companyId
+        AND rc.childId = :childId
+        AND r.date = :date
+        AND r.status IN ('PLANNED', 'IN_PROGRESS')
+        AND (
+            (rc.estimatedPickupTime < :dropoffTime AND rc.estimatedDropoffTime > :pickupTime)
+        )
+    """)
+    fun existsChildConflict(
+        @Param("companyId") companyId: String,
+        @Param("childId") childId: String,
+        @Param("date") date: LocalDate,
+        @Param("pickupTime") pickupTime: LocalTime,
+        @Param("dropoffTime") dropoffTime: LocalTime
+    ): Boolean
 }
 
 interface RouteNoteJpaRepository : JpaRepository<RouteNoteEntity, String> {

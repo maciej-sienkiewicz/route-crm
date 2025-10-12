@@ -5,7 +5,9 @@ import org.springframework.data.domain.Pageable
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
 import java.time.LocalDate
+import java.time.LocalTime
 
 interface RouteRepository {
     suspend fun save(route: Route): Route
@@ -24,6 +26,22 @@ interface RouteRepository {
         pageable: Pageable
     ): Page<Route>
     suspend fun delete(companyId: CompanyId, id: RouteId)
+
+    suspend fun hasDriverConflict(
+        companyId: CompanyId,
+        driverId: DriverId,
+        date: LocalDate,
+        startTime: LocalTime,
+        endTime: LocalTime
+    ): Boolean
+
+    suspend fun hasVehicleConflict(
+        companyId: CompanyId,
+        vehicleId: VehicleId,
+        date: LocalDate,
+        startTime: LocalTime,
+        endTime: LocalTime
+    ): Boolean
 }
 
 interface RouteChildRepository {
@@ -37,6 +55,14 @@ interface RouteChildRepository {
     ): RouteChild?
     suspend fun countByRoute(companyId: CompanyId, routeId: RouteId): Int
     suspend fun deleteByRoute(companyId: CompanyId, routeId: RouteId)
+
+    suspend fun hasChildConflict(
+        companyId: CompanyId,
+        childId: ChildId,
+        date: LocalDate,
+        pickupTime: LocalTime,
+        dropoffTime: LocalTime
+    ): Boolean
 }
 
 interface RouteNoteRepository {

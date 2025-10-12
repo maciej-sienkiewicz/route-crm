@@ -33,7 +33,9 @@ object TestDataFactory {
         birthDate: String = "2015-03-15",
         disability: List<String> = listOf("INTELLECTUAL", "PHYSICAL"),
         guardianId: String? = null,
-        notes: String? = null
+        notes: String? = null,
+        wheelchair: Boolean = false,
+        specialSeat: Boolean = true
     ) = mapOf(
         "child" to mapOf(
             "firstName" to firstName,
@@ -41,8 +43,8 @@ object TestDataFactory {
             "birthDate" to birthDate,
             "disability" to disability,
             "transportNeeds" to mapOf(
-                "wheelchair" to false,
-                "specialSeat" to true,
+                "wheelchair" to wheelchair,
+                "specialSeat" to specialSeat,
                 "safetyBelt" to true
             ),
             "notes" to notes

@@ -301,10 +301,12 @@ class RouteVehicleCapacityTests : BaseE2ETest() {
         val child1Id = createChild(
             firstName = "Anna",
             disability = listOf("PHYSICAL"),
+            wheelchair = true
         )
         val child2Id = createChild(
             firstName = "Jan",
             disability = listOf("PHYSICAL"),
+            wheelchair = true
         )
 
         val schedule1Id = createSchedule(child1Id)
@@ -344,10 +346,12 @@ class RouteVehicleCapacityTests : BaseE2ETest() {
         val child1Id = createChild(
             firstName = "Anna",
             disability = listOf("PHYSICAL"),
+            wheelchair = true
         )
         val child2Id = createChild(
             firstName = "Jan",
             disability = listOf("PHYSICAL"),
+            wheelchair = true
         )
 
         val schedule1Id = createSchedule(child1Id)
@@ -386,14 +390,20 @@ class RouteVehicleCapacityTests : BaseE2ETest() {
         val child1Id = createChild(
             firstName = "Anna",
             disability = listOf("INTELLECTUAL"),
+            wheelchair = false,
+            specialSeat = true
         )
         val child2Id = createChild(
             firstName = "Jan",
             disability = listOf("INTELLECTUAL"),
+            wheelchair = false,
+            specialSeat = true
         )
         val child3Id = createChild(
             firstName = "Maria",
             disability = listOf("INTELLECTUAL"),
+            wheelchair = false,
+            specialSeat = true
         )
 
         val schedule1Id = createSchedule(child1Id)
@@ -471,18 +481,26 @@ class RouteVehicleCapacityTests : BaseE2ETest() {
         val child1Id = createChild(
             firstName = "Anna",
             disability = listOf("PHYSICAL"),
+            wheelchair = true,
+            specialSeat = false
         )
         val child2Id = createChild(
             firstName = "Jan",
             disability = listOf("INTELLECTUAL"),
+            wheelchair = false,
+            specialSeat = true
         )
         val child3Id = createChild(
             firstName = "Maria",
             disability = listOf("AUTISM"),
+            wheelchair = false,
+            specialSeat = true
         )
         val child4Id = createChild(
             firstName = "Piotr",
-            disability = listOf("SENSORY_VISUAL")
+            disability = listOf("SENSORY_VISUAL"),
+            wheelchair = false,
+            specialSeat = false
         )
 
         val schedule1Id = createSchedule(child1Id)
@@ -1334,12 +1352,16 @@ private fun BaseE2ETest.createVehicle(
 
 private fun BaseE2ETest.createChild(
     firstName: String = "Anna",
-    disability: List<String> = listOf("INTELLECTUAL", "PHYSICAL")
+    disability: List<String> = listOf("INTELLECTUAL", "PHYSICAL"),
+    wheelchair: Boolean = false,
+    specialSeat: Boolean = true
 ): String {
     return createAuthenticatedRequest("ADMIN")
         .body(TestDataFactory.childRequest(
             firstName = firstName,
-            disability = disability
+            disability = disability,
+            wheelchair = wheelchair,
+            specialSeat = specialSeat
         ))
         .post("/children")
         .then()

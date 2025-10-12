@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildRepository
+import pl.sienkiewiczmaciej.routecrm.child.domain.ChildStatus
 import pl.sienkiewiczmaciej.routecrm.child.getbyid.ChildNotFoundException
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverRepository
@@ -78,6 +79,18 @@ class CreateRouteHandler(
             "Driver must be ACTIVE to be assigned to a route"
         }
 
+        if (routeRepository.hasDriverConflict(
+                command.companyId,
+                command.driverId,
+                command.date,
+                command.estimatedStartTime,
+                command.estimatedEndTime
+            )) {
+            throw IllegalArgumentException(
+                "Driver ${command.driverId.value} already has a route at this time on ${command.date}"
+            )
+        }
+
         val vehicle = vehicleRepository.findById(command.companyId, command.vehicleId)
             ?: throw VehicleNotFoundException(command.vehicleId)
 
@@ -85,13 +98,53 @@ class CreateRouteHandler(
             "Vehicle must be AVAILABLE to be assigned to a route"
         }
 
-        require(command.children.size <= vehicle.capacity.totalSeats) {
-            "Number of children (${command.children.size}) exceeds vehicle capacity (${vehicle.capacity.totalSeats})"
+        if (routeRepository.hasVehicleConflict(
+                command.companyId,
+                command.vehicleId,
+                command.date,
+                command.estimatedStartTime,
+                command.estimatedEndTime
+            )) {
+            throw IllegalArgumentException(
+                "Vehicle ${command.vehicleId.value} is already assigned to another route at this time on ${command.date}"
+            )
         }
 
-        command.children.forEach { childData ->
+        val children = command.children.map { childData ->
             val child = childRepository.findById(command.companyId, childData.childId)
                 ?: throw ChildNotFoundException(childData.childId)
+
+            require(child.status == ChildStatus.ACTIVE) {
+                "Child ${child.id.value} must be ACTIVE to be assigned to a route"
+            }
+
+            if (routeChildRepository.hasChildConflict(
+                    command.companyId,
+                    childData.childId,
+                    command.date,
+                    childData.estimatedPickupTime,
+                    childData.estimatedDropoffTime
+                )) {
+                throw IllegalArgumentException(
+                    "Child ${childData.childId.value} already has a route at this time on ${command.date}"
+                )
+            }
+
+            child
+        }
+
+        val wheelchairCount = children.count { it.transportNeeds.wheelchair }
+        require(wheelchairCount <= vehicle.capacity.wheelchairSpaces) {
+            "Number of children requiring wheelchair ($wheelchairCount) exceeds vehicle wheelchair capacity (${vehicle.capacity.wheelchairSpaces})"
+        }
+
+        val specialSeatCount = children.count { it.transportNeeds.specialSeat }
+        require(specialSeatCount <= vehicle.capacity.childSeats) {
+            "Number of children requiring special seats ($specialSeatCount) exceeds vehicle special seat capacity (${vehicle.capacity.childSeats})"
+        }
+
+        require(command.children.size <= vehicle.capacity.totalSeats) {
+            "Number of children (${command.children.size}) exceeds vehicle capacity (${vehicle.capacity.totalSeats})"
         }
 
         val route = Route.create(

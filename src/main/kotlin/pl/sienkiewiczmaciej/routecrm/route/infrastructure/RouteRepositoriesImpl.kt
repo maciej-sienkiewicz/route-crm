@@ -10,7 +10,9 @@ import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
 import java.time.LocalDate
+import java.time.LocalTime
 
 @Repository
 class RouteRepositoryImpl(
@@ -65,6 +67,38 @@ class RouteRepositoryImpl(
             jpaRepository.delete(entity)
         }
     }
+
+    override suspend fun hasDriverConflict(
+        companyId: CompanyId,
+        driverId: DriverId,
+        date: LocalDate,
+        startTime: LocalTime,
+        endTime: LocalTime
+    ): Boolean = withContext(Dispatchers.IO) {
+        jpaRepository.existsDriverConflict(
+            companyId.value,
+            driverId.value,
+            date,
+            startTime,
+            endTime
+        )
+    }
+
+    override suspend fun hasVehicleConflict(
+        companyId: CompanyId,
+        vehicleId: VehicleId,
+        date: LocalDate,
+        startTime: LocalTime,
+        endTime: LocalTime
+    ): Boolean = withContext(Dispatchers.IO) {
+        jpaRepository.existsVehicleConflict(
+            companyId.value,
+            vehicleId.value,
+            date,
+            startTime,
+            endTime
+        )
+    }
 }
 
 @Repository
@@ -110,6 +144,22 @@ class RouteChildRepositoryImpl(
         withContext(Dispatchers.IO) {
             jpaRepository.deleteByCompanyIdAndRouteId(companyId.value, routeId.value)
         }
+    }
+
+    override suspend fun hasChildConflict(
+        companyId: CompanyId,
+        childId: ChildId,
+        date: LocalDate,
+        pickupTime: LocalTime,
+        dropoffTime: LocalTime
+    ): Boolean = withContext(Dispatchers.IO) {
+        jpaRepository.existsChildConflict(
+            companyId.value,
+            childId.value,
+            date,
+            pickupTime,
+            dropoffTime
+        )
     }
 }
 
