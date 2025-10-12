@@ -1,8 +1,8 @@
 package pl.sienkiewiczmaciej.routecrm.schedule.infrastructure
 
-import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.persistence.*
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.DayOfWeek
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.Schedule
@@ -36,8 +36,8 @@ class ScheduleEntity(
     @Column(nullable = false, length = 255)
     val name: String,
 
-    @Column(columnDefinition = "jsonb", nullable = false)
-    @Convert(converter = DayOfWeekSetConverter::class)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false)
     val days: Set<DayOfWeek>,
 
     @Column(name = "pickup_time", nullable = false)
@@ -150,19 +150,5 @@ class ScheduleEntity(
             specialInstructions = schedule.specialInstructions,
             active = schedule.active
         )
-    }
-}
-
-@Converter
-class DayOfWeekSetConverter : AttributeConverter<Set<DayOfWeek>, String> {
-    private val objectMapper = ObjectMapper()
-
-    override fun convertToDatabaseColumn(attribute: Set<DayOfWeek>?): String {
-        return objectMapper.writeValueAsString(attribute ?: emptySet<DayOfWeek>())
-    }
-
-    override fun convertToEntityAttribute(dbData: String?): Set<DayOfWeek> {
-        if (dbData.isNullOrBlank()) return emptySet()
-        return objectMapper.readValue(dbData, object : TypeReference<Set<DayOfWeek>>() {})
     }
 }

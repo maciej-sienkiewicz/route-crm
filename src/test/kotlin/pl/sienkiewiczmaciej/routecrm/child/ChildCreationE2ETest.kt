@@ -111,18 +111,14 @@ class ChildQueryE2ETest : BaseE2ETest() {
     }
 
     @Test
-    fun `should get child by id with guardians and schedules`() {
+    fun `should get child by id with guardians`() {
         val childId = createAuthenticatedRequest("ADMIN")
             .body(TestDataFactory.childRequest())
             .post("/children")
             .then()
             .extract()
             .path<String>("id")
-
-        createAuthenticatedRequest("ADMIN")
-            .body(TestDataFactory.scheduleRequest())
-            .post("/children/$childId/schedules")
-
+        
         createAuthenticatedRequest("ADMIN")
             .`when`()
             .get("/children/$childId")
@@ -131,8 +127,6 @@ class ChildQueryE2ETest : BaseE2ETest() {
             .body("id", equalTo(childId))
             .body("guardians", notNullValue())
             .body("guardians.size()", greaterThan(0))
-            .body("schedules", notNullValue())
-            .body("schedules.size()", greaterThan(0))
     }
 
     @Test

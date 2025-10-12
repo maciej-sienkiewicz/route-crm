@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.child.domain.Child
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildRepository
@@ -52,9 +53,16 @@ class ChildRepositoryImpl(
         ).map { it.toDomain() }
     }
 
+    @Transactional
     override suspend fun delete(companyId: CompanyId, id: ChildId) {
         withContext(Dispatchers.IO) {
-            jpaRepository.softDeleteByIdAndCompanyId(id.value, companyId.value)
+            val child = jpaRepository.findByIdAndCompanyId(id.value, companyId.value)
+                ?.toDomain()
+                ?: return@withContext
+
+            val inactiveChild = child.copy(status = ChildStatus.INACTIVE)
+            val entity = ChildEntity.fromDomain(inactiveChild)
+            jpaRepository.save(entity)
         }
     }
 }

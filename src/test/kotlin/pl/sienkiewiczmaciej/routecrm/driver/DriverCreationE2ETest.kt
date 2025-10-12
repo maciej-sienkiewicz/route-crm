@@ -408,5 +408,15 @@ class DriverMultiTenancyE2ETest : BaseE2ETest() {
             .get("/drivers/$driverId")
             .then()
             .statusCode(HttpStatus.NOT_FOUND.value())
+
+        io.restassured.RestAssured.given()
+            .contentType(io.restassured.http.ContentType.JSON)
+            .header("X-Test-User-Id", user1.id)
+            .header("X-Test-Company-Id", company1.id)
+            .header("X-Test-User-Role", "ADMIN")
+            .`when`()
+            .get("/drivers/$driverId")
+            .then()
+            .statusCode(HttpStatus.OK.value())
     }
 }
