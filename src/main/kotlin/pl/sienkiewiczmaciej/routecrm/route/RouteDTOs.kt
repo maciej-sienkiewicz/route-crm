@@ -1,0 +1,369 @@
+package pl.sienkiewiczmaciej.routecrm.route
+
+import com.fasterxml.jackson.annotation.JsonFormat
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotEmpty
+import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Size
+import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
+import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteCommand
+import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteResult
+import pl.sienkiewiczmaciej.routecrm.route.create.RouteChildData
+import pl.sienkiewiczmaciej.routecrm.route.domain.ChildInRouteStatus
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
+import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteDetail
+import pl.sienkiewiczmaciej.routecrm.route.list.RouteListItem
+import pl.sienkiewiczmaciej.routecrm.route.note.AddNoteResult
+import pl.sienkiewiczmaciej.routecrm.route.updatechildstatus.UpdateChildStatusResult
+import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateStatusResult
+import pl.sienkiewiczmaciej.routecrm.schedule.ScheduleAddressRequest
+import pl.sienkiewiczmaciej.routecrm.schedule.ScheduleAddressResponse
+import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
+import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+
+data class RouteChildRequest(
+    @field:NotBlank(message = "Child ID is required")
+    val childId: String,
+
+    @field:NotBlank(message = "Schedule ID is required")
+    val scheduleId: String,
+
+    @field:NotNull(message = "Pickup order is required")
+    @field:Min(1, message = "Pickup order must be at least 1")
+    val pickupOrder: Int,
+
+    @field:Valid
+    @field:NotNull(message = "Pickup address is required")
+    val pickupAddress: ScheduleAddressRequest,
+
+    @field:Valid
+    @field:NotNull(message = "Dropoff address is required")
+    val dropoffAddress: ScheduleAddressRequest,
+
+    @field:NotNull(message = "Estimated pickup time is required")
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedPickupTime: LocalTime,
+
+    @field:NotNull(message = "Estimated dropoff time is required")
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedDropoffTime: LocalTime
+) {
+    fun toData() = RouteChildData(
+        childId = ChildId.from(childId),
+        scheduleId = ScheduleId.from(scheduleId),
+        pickupOrder = pickupOrder,
+        pickupAddress = pickupAddress.toDomain(),
+        dropoffAddress = dropoffAddress.toDomain(),
+        estimatedPickupTime = estimatedPickupTime,
+        estimatedDropoffTime = estimatedDropoffTime
+    )
+}
+
+data class CreateRouteRequest(
+    @field:NotBlank(message = "Route name is required")
+    @field:Size(min = 1, max = 255)
+    val routeName: String,
+
+    @field:NotNull(message = "Date is required")
+    val date: LocalDate,
+
+    @field:NotBlank(message = "Driver ID is required")
+    val driverId: String,
+
+    @field:NotBlank(message = "Vehicle ID is required")
+    val vehicleId: String,
+
+    @field:NotNull(message = "Estimated start time is required")
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedStartTime: LocalTime,
+
+    @field:NotNull(message = "Estimated end time is required")
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedEndTime: LocalTime,
+
+    @field:Valid
+    @field:NotEmpty(message = "At least one child is required")
+    val children: List<RouteChildRequest>
+) {
+    fun toCommand(companyId: CompanyId) = CreateRouteCommand(
+        companyId = companyId,
+        routeName = routeName,
+        date = date,
+        driverId = DriverId.from(driverId),
+        vehicleId = VehicleId.from(vehicleId),
+        estimatedStartTime = estimatedStartTime,
+        estimatedEndTime = estimatedEndTime,
+        children = children.map { it.toData() }
+    )
+}
+
+data class RouteResponse(
+    val id: String,
+    val companyId: String,
+    val routeName: String,
+    val date: LocalDate,
+    val status: RouteStatus,
+    val driverId: String,
+    val vehicleId: String,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedStartTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedEndTime: LocalTime,
+    val actualStartTime: Instant?,
+    val actualEndTime: Instant?,
+    val childrenCount: Int,
+    val createdAt: Instant
+) {
+    companion object {
+        fun from(result: CreateRouteResult) = RouteResponse(
+            id = result.id.value,
+            companyId = result.companyId.value,
+            routeName = result.routeName,
+            date = result.date,
+            status = result.status,
+            driverId = result.driverId.value,
+            vehicleId = result.vehicleId.value,
+            estimatedStartTime = result.estimatedStartTime,
+            estimatedEndTime = result.estimatedEndTime,
+            actualStartTime = null,
+            actualEndTime = null,
+            childrenCount = result.childrenCount,
+            createdAt = Instant.now()
+        )
+    }
+}
+
+data class DriverSimpleResponse(
+    val id: String,
+    val firstName: String,
+    val lastName: String
+)
+
+data class VehicleSimpleResponse(
+    val id: String,
+    val registrationNumber: String,
+    val model: String
+)
+
+data class RouteListResponse(
+    val id: String,
+    val routeName: String,
+    val date: LocalDate,
+    val status: RouteStatus,
+    val driver: DriverSimpleResponse,
+    val vehicle: VehicleSimpleResponse,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedStartTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedEndTime: LocalTime,
+    val childrenCount: Int
+) {
+    companion object {
+        fun from(item: RouteListItem) = RouteListResponse(
+            id = item.id.value,
+            routeName = item.routeName,
+            date = item.date,
+            status = item.status,
+            driver = DriverSimpleResponse(
+                id = item.driverId.value,
+                firstName = item.driverFirstName,
+                lastName = item.driverLastName
+            ),
+            vehicle = VehicleSimpleResponse(
+                id = item.vehicleId.value,
+                registrationNumber = item.vehicleRegistrationNumber,
+                model = item.vehicleModel
+            ),
+            estimatedStartTime = item.estimatedStartTime,
+            estimatedEndTime = item.estimatedEndTime,
+            childrenCount = item.childrenCount
+        )
+    }
+}
+
+data class RouteChildDetailResponse(
+    val id: String,
+    val firstName: String,
+    val lastName: String,
+    val pickupOrder: Int,
+    val pickupAddress: ScheduleAddressResponse,
+    val dropoffAddress: ScheduleAddressResponse,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedPickupTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedDropoffTime: LocalTime,
+    val actualPickupTime: Instant?,
+    val actualDropoffTime: Instant?,
+    val status: ChildInRouteStatus,
+    val guardian: GuardianSimpleResponse
+)
+
+data class GuardianSimpleResponse(
+    val firstName: String,
+    val lastName: String,
+    val phone: String
+)
+
+data class RouteNoteResponse(
+    val id: String,
+    val author: String,
+    val content: String,
+    val createdAt: Instant
+)
+
+data class RouteDetailResponse(
+    val id: String,
+    val companyId: String,
+    val routeName: String,
+    val date: LocalDate,
+    val status: RouteStatus,
+    val driver: DriverSimpleResponse,
+    val vehicle: VehicleSimpleResponse,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedStartTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedEndTime: LocalTime,
+    val actualStartTime: Instant?,
+    val actualEndTime: Instant?,
+    val children: List<RouteChildDetailResponse>,
+    val notes: List<RouteNoteResponse>,
+    val createdAt: Instant,
+    val updatedAt: Instant
+) {
+    companion object {
+        fun from(detail: RouteDetail) = RouteDetailResponse(
+            id = detail.id.value,
+            companyId = detail.companyId.value,
+            routeName = detail.routeName,
+            date = detail.date,
+            status = detail.status,
+            driver = DriverSimpleResponse(
+                id = detail.driverId.value,
+                firstName = detail.driverFirstName,
+                lastName = detail.driverLastName
+            ),
+            vehicle = VehicleSimpleResponse(
+                id = detail.vehicleId.value,
+                registrationNumber = detail.vehicleRegistrationNumber,
+                model = detail.vehicleModel
+            ),
+            estimatedStartTime = detail.estimatedStartTime,
+            estimatedEndTime = detail.estimatedEndTime,
+            actualStartTime = detail.actualStartTime,
+            actualEndTime = detail.actualEndTime,
+            children = detail.children.map { child ->
+                RouteChildDetailResponse(
+                    id = child.childId.value,
+                    firstName = child.firstName,
+                    lastName = child.lastName,
+                    pickupOrder = child.pickupOrder,
+                    pickupAddress = ScheduleAddressResponse.from(child.pickupAddress),
+                    dropoffAddress = ScheduleAddressResponse.from(child.dropoffAddress),
+                    estimatedPickupTime = child.estimatedPickupTime,
+                    estimatedDropoffTime = child.estimatedDropoffTime,
+                    actualPickupTime = child.actualPickupTime,
+                    actualDropoffTime = child.actualDropoffTime,
+                    status = child.status,
+                    guardian = GuardianSimpleResponse(
+                        firstName = child.guardianFirstName,
+                        lastName = child.guardianLastName,
+                        phone = child.guardianPhone
+                    )
+                )
+            },
+            notes = detail.notes.map { note ->
+                RouteNoteResponse(
+                    id = note.id.value,
+                    author = note.authorName,
+                    content = note.content,
+                    createdAt = note.createdAt
+                )
+            },
+            createdAt = Instant.now(),
+            updatedAt = Instant.now()
+        )
+    }
+}
+
+data class UpdateRouteStatusRequest(
+    @field:NotNull(message = "Status is required")
+    val status: RouteStatus,
+
+    val actualStartTime: Instant?,
+    val actualEndTime: Instant?
+)
+
+data class UpdateRouteStatusResponse(
+    val id: String,
+    val status: RouteStatus,
+    val actualStartTime: Instant?,
+    val actualEndTime: Instant?,
+    val updatedAt: Instant
+) {
+    companion object {
+        fun from(result: UpdateStatusResult) = UpdateRouteStatusResponse(
+            id = result.id.value,
+            status = result.status,
+            actualStartTime = result.actualStartTime,
+            actualEndTime = result.actualEndTime,
+            updatedAt = Instant.now()
+        )
+    }
+}
+
+data class UpdateChildStatusRequest(
+    @field:NotNull(message = "Status is required")
+    val status: ChildInRouteStatus,
+
+    val actualPickupTime: Instant?,
+    val actualDropoffTime: Instant?
+)
+
+data class UpdateChildStatusResponse(
+    val childId: String,
+    val status: ChildInRouteStatus,
+    val actualPickupTime: Instant?,
+    val actualDropoffTime: Instant?,
+    val updatedAt: Instant
+) {
+    companion object {
+        fun from(result: UpdateChildStatusResult) = UpdateChildStatusResponse(
+            childId = result.childId.value,
+            status = result.status,
+            actualPickupTime = result.actualPickupTime,
+            actualDropoffTime = result.actualDropoffTime,
+            updatedAt = Instant.now()
+        )
+    }
+}
+
+data class AddRouteNoteRequest(
+    @field:NotBlank(message = "Note content is required")
+    @field:Size(max = 5000)
+    val content: String
+)
+
+data class AddRouteNoteResponse(
+    val id: String,
+    val routeId: String,
+    val author: String,
+    val content: String,
+    val createdAt: Instant
+) {
+    companion object {
+        fun from(result: AddNoteResult) = AddRouteNoteResponse(
+            id = result.id.value,
+            routeId = result.routeId.value,
+            author = result.authorName,
+            content = result.content,
+            createdAt = result.createdAt
+        )
+    }
+}

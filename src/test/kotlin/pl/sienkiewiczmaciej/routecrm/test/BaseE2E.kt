@@ -80,7 +80,7 @@ abstract class BaseE2ETest {
         jdbcTemplate.execute("TRUNCATE TABLE companies CASCADE")
     }
 
-    protected fun createAuthenticatedRequest(userRole: String = "ADMIN"): io.restassured.specification.RequestSpecification {
+    fun createAuthenticatedRequest(userRole: String = "ADMIN"): io.restassured.specification.RequestSpecification {
         val company = createTestCompany()
         val user = createTestUser(company.id, userRole)
 
