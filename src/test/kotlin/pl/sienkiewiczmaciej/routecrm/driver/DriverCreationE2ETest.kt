@@ -250,12 +250,11 @@ class DriverUpdateE2ETest : BaseE2ETest() {
             .extract()
             .path<String>("id")
 
-        val updateRequest = TestDataFactory.driverRequest(
+        val updateRequest = TestDataFactory.driverUpdateRequest(
             firstName = "Updated",
-            lastName = "Name"
-        ).toMutableMap().apply {
-            put("status", "ON_LEAVE")
-        }
+            lastName = "Name",
+            status = "ON_LEAVE"
+        )
 
         createAuthenticatedRequest("ADMIN")
             .body(updateRequest)
@@ -280,7 +279,7 @@ class DriverUpdateE2ETest : BaseE2ETest() {
             .body(TestDataFactory.driverRequest(email = "second@example.com"))
             .post("/drivers")
 
-        val updateRequest = TestDataFactory.driverRequest(email = "second@example.com")
+        val updateRequest = TestDataFactory.driverUpdateRequest(email = "second@example.com")
 
         createAuthenticatedRequest("ADMIN")
             .body(updateRequest)
@@ -300,15 +299,15 @@ class DriverUpdateE2ETest : BaseE2ETest() {
             .extract()
             .path<String>("id")
 
-        val request2 = TestDataFactory.driverRequest(email = "driver2@example.com").toMutableMap()
         val licenseNumber = "XYZ999"
+        val request2 = TestDataFactory.driverRequest(email = "driver2@example.com").toMutableMap()
         (request2["drivingLicense"] as MutableMap<String, Any?>)["licenseNumber"] = licenseNumber
 
         createAuthenticatedRequest("ADMIN")
             .body(request2)
             .post("/drivers")
 
-        val updateRequest = TestDataFactory.driverRequest(email = "driver1@example.com").toMutableMap()
+        val updateRequest = TestDataFactory.driverUpdateRequest(email = "driver1@example.com").toMutableMap()
         (updateRequest["drivingLicense"] as MutableMap<String, Any?>)["licenseNumber"] = licenseNumber
 
         createAuthenticatedRequest("ADMIN")
@@ -329,7 +328,7 @@ class DriverUpdateE2ETest : BaseE2ETest() {
             .extract()
             .path<String>("id")
 
-        val updateRequest = TestDataFactory.driverRequest(firstName = "Updated")
+        val updateRequest = TestDataFactory.driverUpdateRequest(firstName = "Updated")
 
         createAuthenticatedRequest("OPERATOR")
             .body(updateRequest)
@@ -396,7 +395,7 @@ class DriverMultiTenancyE2ETest : BaseE2ETest() {
             .extract()
             .path<String>("id")
 
-        val company2 = createTestCompany()
+        val company2 = createTestCompany("CMP-test-2")
         val user2 = createTestUser(company2.id, "ADMIN")
 
         io.restassured.RestAssured.given()

@@ -68,6 +68,36 @@ object TestDataFactory {
         }
     )
 
+    fun driverUpdateRequest(
+        firstName: String = "Jan",
+        lastName: String = "Nowak",
+        email: String = "jan.nowak${System.currentTimeMillis()}@example.com",
+        phone: String = "+48123456789",
+        status: String = "ACTIVE"
+    ) = mapOf(
+        "firstName" to firstName,
+        "lastName" to lastName,
+        "email" to email,
+        "phone" to phone,
+        "address" to mapOf(
+            "street" to "ul. Kwiatowa",
+            "houseNumber" to "20",
+            "apartmentNumber" to "15",
+            "postalCode" to "02-520",
+            "city" to "Warszawa"
+        ),
+        "status" to status,
+        "drivingLicense" to mapOf(
+            "licenseNumber" to "ABC${System.currentTimeMillis()}",
+            "categories" to listOf("B", "D"),
+            "validUntil" to LocalDate.now().plusYears(5).toString()
+        ),
+        "medicalCertificate" to mapOf(
+            "validUntil" to LocalDate.now().plusYears(2).toString(),
+            "issueDate" to LocalDate.now().minusDays(1).toString()
+        )
+    )
+
     fun scheduleRequest(
         name: String = "Do szkoły",
         days: List<String> = listOf("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"),

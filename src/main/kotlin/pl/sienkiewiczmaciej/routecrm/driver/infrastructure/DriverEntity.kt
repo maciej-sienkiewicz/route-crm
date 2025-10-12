@@ -1,8 +1,8 @@
 package pl.sienkiewiczmaciej.routecrm.driver.infrastructure
 
-import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.persistence.*
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import pl.sienkiewiczmaciej.routecrm.driver.domain.Driver
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverStatus
@@ -59,8 +59,8 @@ class DriverEntity(
     @Column(name = "license_number", nullable = false, length = 50)
     val licenseNumber: String,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "license_categories", columnDefinition = "jsonb", nullable = false)
-    @Convert(converter = LicenseCategoriesConverter::class)
     val licenseCategories: Set<String>,
 
     @Column(name = "license_valid_until", nullable = false)
@@ -120,19 +120,5 @@ class DriverEntity(
             medicalCertificateIssueDate = driver.medicalCertificate.issueDate,
             status = driver.status
         )
-    }
-}
-
-@Converter
-class LicenseCategoriesConverter : AttributeConverter<Set<String>, String> {
-    private val objectMapper = ObjectMapper()
-
-    override fun convertToDatabaseColumn(attribute: Set<String>?): String {
-        return objectMapper.writeValueAsString(attribute ?: emptySet<String>())
-    }
-
-    override fun convertToEntityAttribute(dbData: String?): Set<String> {
-        if (dbData.isNullOrBlank()) return emptySet()
-        return objectMapper.readValue(dbData, object : TypeReference<Set<String>>() {})
     }
 }
