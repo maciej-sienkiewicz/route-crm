@@ -79,10 +79,8 @@ data class CreateGuardianRequest(
     val email: String,
 
     @field:NotBlank(message = "Phone is required")
-    @field:Pattern(regexp = "^\\+?[1-9]\\d{1,14}$", message = "Invalid phone format")
     val phone: String,
 
-    @field:Pattern(regexp = "^\\+?[1-9]\\d{1,14}$", message = "Invalid phone format")
     val alternatePhone: String?,
 
     @field:Valid

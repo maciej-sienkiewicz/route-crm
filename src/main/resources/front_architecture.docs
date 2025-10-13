@@ -1,0 +1,1541 @@
+# Frontend Technical Documentation - Transport CRM System
+
+## Technology Stack
+
+- **React 18+** with TypeScript 5+ (strict mode)
+- **Vite** - Build tool and dev server
+- **TanStack Query (React Query)** - Server state management
+- **Zustand** - Client state management (user session, UI state)
+- **TanStack Router** - Type-safe routing with role-based guards
+- **Zod** - Runtime validation and type inference
+- **styled-components 6+** - Component styling with TypeScript support
+- **Tailwind CSS** - Utility classes for rapid development
+- **Radix UI** - Accessible component primitives
+- **lucide-react** - Icon system
+- **Docker** - Containerized deployment
+
+## Design System Philosophy
+
+Based on the provided mockups, the application follows a **Premium Modern Design System** with these core principles:
+
+### Visual Language
+- **Premium Glass Morphism**: Frosted glass effects with backdrop blur for depth
+- **Sophisticated Gradients**: Subtle to bold gradients for visual hierarchy
+- **Soft Shadows**: Layered shadows for elevation (sm, md, lg, xl, 2xl)
+- **Smooth Transitions**: All interactions use cubic-bezier easing
+- **Generous Spacing**: Breathing room between elements
+- **Professional Typography**: Inter font family with precise letter-spacing
+
+### Color System
+```typescript
+// colors.ts
+export const colors = {
+  // Neutrals - Slate palette
+  slate: {
+    50: '#f8fafc',
+    100: '#f1f5f9',
+    200: '#e2e8f0',
+    300: '#cbd5e1',
+    400: '#94a3b8',
+    500: '#64748b',
+    600: '#475569',
+    700: '#334155',
+    800: '#1e293b',
+    900: '#0f172a',
+  },
+  
+  // Primary - Blue/Indigo
+  primary: {
+    50: '#eff6ff',
+    100: '#dbeafe',
+    500: '#3b82f6',
+    600: '#2563eb',
+    700: '#1d4ed8',
+  },
+  
+  // Success - Emerald
+  success: {
+    50: '#ecfdf5',
+    100: '#d1fae5',
+    500: '#10b981',
+    600: '#059669',
+    700: '#047857',
+  },
+  
+  // Warning - Amber
+  warning: {
+    50: '#fffbeb',
+    100: '#fef3c7',
+    500: '#f59e0b',
+    600: '#d97706',
+    700: '#b45309',
+  },
+  
+  // Danger - Red
+  danger: {
+    50: '#fef2f2',
+    100: '#fee2e2',
+    500: '#ef4444',
+    600: '#dc2626',
+    700: '#b91c1c',
+  },
+  
+  // Accent - Purple/Violet
+  accent: {
+    400: '#a78bfa',
+    500: '#8b5cf6',
+    600: '#7c3aed',
+  },
+};
+```
+
+### Component Styling Patterns
+
+**1. Premium Cards**
+```typescript
+// Glass effect with gradient border
+background: white with 70% opacity
+backdrop-filter: blur(xl)
+border: 1px slate-200/60
+border-radius: 2xl (16px)
+shadow: sm to xl depending on hierarchy
+```
+
+**2. Gradients Usage**
+```typescript
+// Headers
+background: linear-gradient(to right, blue-50, indigo-50)
+
+// Buttons
+background: linear-gradient(to right, blue-600, indigo-600)
+
+// Avatars
+background: linear-gradient(to bottom-right, violet-400, purple-600)
+
+// Hover overlays
+background: linear-gradient(to bottom-right, blue-500/5, purple-500/5)
+```
+
+**3. Shadows Hierarchy**
+```typescript
+// Subtle elevation
+shadow-sm: '0 1px 2px rgba(0, 0, 0, 0.05)'
+
+// Card elevation
+shadow-md: '0 4px 6px rgba(0, 0, 0, 0.07)'
+
+// Prominent elements
+shadow-lg: '0 10px 15px rgba(0, 0, 0, 0.1)'
+shadow-xl: '0 20px 25px rgba(0, 0, 0, 0.15)'
+
+// Colored shadows for buttons
+shadow-blue-500/30: colored shadow at 30% opacity
+```
+
+**4. Border Radius System**
+```typescript
+rounded-lg: 8px   // Small elements
+rounded-xl: 12px  // Standard cards
+rounded-2xl: 16px // Large cards, modals
+rounded-full: 50% // Avatars, badges
+```
+
+**5. Animations**
+```typescript
+// Slide in from bottom
+@keyframes slideIn {
+  from: opacity 0, translateY(20px)
+  to: opacity 1, translateY(0)
+}
+
+// Modal slide up
+@keyframes slideUp {
+  from: opacity 0, translateY(30px), scale(0.95)
+  to: opacity 1, translateY(0), scale(1)
+}
+
+// Fade in
+@keyframes fadeIn {
+  from: opacity 0
+  to: opacity 1
+}
+```
+
+### Responsive Design Breakpoints
+```typescript
+// tailwind.config.js
+export const breakpoints = {
+  sm: '640px',   // Mobile landscape
+  md: '768px',   // Tablet
+  lg: '1024px',  // Desktop
+  xl: '1280px',  // Large desktop
+  '2xl': '1536px' // Extra large
+};
+```
+
+## Architecture: Feature-Sliced Design (FSD)
+
+### Directory Structure
+
+```
+src/
+├── app/                          # App-level configuration
+│   ├── providers/
+│   │   ├── AppProvider.tsx       # Compose all providers
+│   │   ├── QueryProvider.tsx     # TanStack Query config
+│   │   ├── AuthProvider.tsx      # Auth context wrapper
+│   │   └── ThemeProvider.tsx     # styled-components theme
+│   ├── router/
+│   │   ├── index.tsx             # Route definitions
+│   │   └── guards.tsx            # Route guards (auth, roles)
+│   ├── styles/
+│   │   ├── GlobalStyles.ts       # Global styled-components
+│   │   ├── theme.ts              # Theme configuration
+│   │   └── animations.ts         # Reusable animations
+│   └── App.tsx
+│
+├── pages/                        # Route pages (thin layer)
+│   ├── LoginPage.tsx
+│   ├── DashboardPage.tsx
+│   ├── children/
+│   │   ├── ChildrenListPage.tsx
+│   │   ├── ChildDetailPage.tsx
+│   │   └── CreateChildPage.tsx
+│   ├── routes/
+│   │   ├── RoutesListPage.tsx
+│   │   ├── RouteDetailPage.tsx
+│   │   └── CreateRoutePage.tsx
+│   ├── guardians/
+│   ├── vehicles/
+│   ├── drivers/
+│   └── schedules/
+│
+├── features/                     # Business features
+│   ├── auth/
+│   │   ├── api/
+│   │   │   ├── authApi.ts
+│   │   │   └── types.ts
+│   │   ├── hooks/
+│   │   │   ├── useLogin.ts
+│   │   │   ├── useLogout.ts
+│   │   │   └── useCurrentUser.ts
+│   │   ├── store/
+│   │   │   └── authStore.ts
+│   │   ├── components/
+│   │   │   ├── LoginForm/
+│   │   │   │   ├── LoginForm.tsx
+│   │   │   │   └── LoginForm.styles.ts
+│   │   │   └── AuthGuard.tsx
+│   │   └── lib/
+│   │       ├── validation.ts
+│   │       └── utils.ts
+│   │
+│   ├── children/
+│   │   ├── api/
+│   │   │   ├── childrenApi.ts
+│   │   │   ├── createChild.ts
+│   │   │   ├── updateChild.ts
+│   │   │   └── types.ts
+│   │   ├── hooks/
+│   │   │   ├── useChildren.ts
+│   │   │   ├── useChild.ts
+│   │   │   ├── useCreateChild.ts
+│   │   │   ├── useUpdateChild.ts
+│   │   │   └── useDeleteChild.ts
+│   │   ├── components/
+│   │   │   ├── ChildrenList/
+│   │   │   │   ├── ChildrenList.tsx
+│   │   │   │   ├── ChildrenList.styles.ts
+│   │   │   │   ├── ChildrenListItem.tsx
+│   │   │   │   └── ChildrenListSkeleton.tsx
+│   │   │   ├── ChildDetail/
+│   │   │   │   ├── ChildDetail.tsx
+│   │   │   │   ├── ChildDetail.styles.ts
+│   │   │   │   ├── ChildInfo.tsx
+│   │   │   │   ├── ChildGuardians.tsx
+│   │   │   │   └── ChildSchedules.tsx
+│   │   │   ├── ChildForm/
+│   │   │   │   ├── ChildForm.tsx
+│   │   │   │   ├── ChildForm.styles.ts
+│   │   │   │   ├── BasicInfoStep.tsx
+│   │   │   │   ├── DisabilityStep.tsx
+│   │   │   │   └── GuardianStep.tsx
+│   │   │   └── ChildCard/
+│   │   │       ├── ChildCard.tsx
+│   │   │       └── ChildCard.styles.ts
+│   │   ├── lib/
+│   │   │   ├── validation.ts
+│   │   │   ├── utils.ts
+│   │   │   └── constants.ts
+│   │   └── types.ts
+│   │
+│   ├── guardians/
+│   ├── routes/
+│   ├── vehicles/
+│   ├── drivers/
+│   └── schedules/
+│
+├── widgets/                      # Complex UI blocks
+│   ├── DashboardStats/
+│   │   ├── DashboardStats.tsx
+│   │   ├── DashboardStats.styles.ts
+│   │   ├── StatsCard.tsx
+│   │   └── StatsChart.tsx
+│   ├── Sidebar/
+│   │   ├── Sidebar.tsx
+│   │   ├── Sidebar.styles.ts
+│   │   ├── SidebarNav.tsx
+│   │   └── SidebarUserMenu.tsx
+│   └── Header/
+│       ├── Header.tsx
+│       ├── Header.styles.ts
+│       └── NotificationBell.tsx
+│
+├── shared/                       # Shared resources
+│   ├── ui/                       # Reusable UI components
+│   │   ├── Button/
+│   │   │   ├── Button.tsx
+│   │   │   ├── Button.styles.ts
+│   │   │   └── Button.types.ts
+│   │   ├── Input/
+│   │   │   ├── Input.tsx
+│   │   │   ├── Input.styles.ts
+│   │   │   └── Input.types.ts
+│   │   ├── Select/
+│   │   ├── Table/
+│   │   │   ├── Table.tsx
+│   │   │   ├── Table.styles.ts
+│   │   │   ├── TableHeader.tsx
+│   │   │   ├── TableRow.tsx
+│   │   │   └── TableCell.tsx
+│   │   ├── Modal/
+│   │   ├── Card/
+│   │   ├── Badge/
+│   │   ├── StatusBadge/
+│   │   └── LoadingSpinner/
+│   │
+│   ├── layouts/
+│   │   ├── MainLayout/
+│   │   │   ├── MainLayout.tsx
+│   │   │   └── MainLayout.styles.ts
+│   │   ├── AuthLayout/
+│   │   └── EmptyLayout/
+│   │
+│   ├── api/
+│   │   ├── client.ts
+│   │   ├── queryClient.ts
+│   │   ├── errorHandler.ts
+│   │   ├── types.ts
+│   │   └── errors.ts
+│   │
+│   ├── hooks/
+│   │   ├── useDebounce.ts
+│   │   ├── usePagination.ts
+│   │   ├── useDisclosure.ts
+│   │   ├── useRoleAccess.ts
+│   │   └── useMediaQuery.ts
+│   │
+│   ├── lib/
+│   │   ├── format.ts
+│   │   ├── validation.ts
+│   │   ├── constants.ts
+│   │   └── errors.ts
+│   │
+│   └── types/
+│       ├── api.ts
+│       ├── domain.ts
+│       └── enums.ts
+│
+└── main.tsx
+```
+
+## Core Implementation Patterns
+
+### 1. styled-components with Theme
+
+**Theme Configuration**
+
+```typescript
+// app/styles/theme.ts
+import { DefaultTheme } from 'styled-components';
+
+export const theme: DefaultTheme = {
+  colors: {
+    slate: {
+      50: '#f8fafc',
+      100: '#f1f5f9',
+      200: '#e2e8f0',
+      300: '#cbd5e1',
+      400: '#94a3b8',
+      500: '#64748b',
+      600: '#475569',
+      700: '#334155',
+      800: '#1e293b',
+      900: '#0f172a',
+    },
+    primary: {
+      50: '#eff6ff',
+      100: '#dbeafe',
+      500: '#3b82f6',
+      600: '#2563eb',
+      700: '#1d4ed8',
+    },
+    success: {
+      50: '#ecfdf5',
+      100: '#d1fae5',
+      500: '#10b981',
+      600: '#059669',
+      700: '#047857',
+    },
+    warning: {
+      50: '#fffbeb',
+      100: '#fef3c7',
+      500: '#f59e0b',
+      600: '#d97706',
+      700: '#b45309',
+    },
+    danger: {
+      50: '#fef2f2',
+      100: '#fee2e2',
+      500: '#ef4444',
+      600: '#dc2626',
+      700: '#b91c1c',
+    },
+    accent: {
+      400: '#a78bfa',
+      500: '#8b5cf6',
+      600: '#7c3aed',
+    },
+  },
+  
+  gradients: {
+    primaryButton: 'linear-gradient(to right, #2563eb, #7c3aed)',
+    cardHeader: 'linear-gradient(to right, #eff6ff, #e0e7ff)',
+    avatar: 'linear-gradient(to bottom right, #a78bfa, #7c3aed)',
+    hoverOverlay: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05))',
+  },
+  
+  shadows: {
+    sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+    md: '0 4px 6px -1px rgba(0, 0, 0, 0.07)',
+    lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+    xl: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
+    primaryGlow: '0 10px 30px -5px rgba(37, 99, 235, 0.3)',
+    accentGlow: '0 10px 30px -5px rgba(139, 92, 246, 0.3)',
+  },
+  
+  borderRadius: {
+    sm: '0.375rem',
+    md: '0.5rem',
+    lg: '0.75rem',
+    xl: '1rem',
+    '2xl': '1.5rem',
+    full: '9999px',
+  },
+  
+  spacing: {
+    xs: '0.25rem',
+    sm: '0.5rem',
+    md: '1rem',
+    lg: '1.5rem',
+    xl: '2rem',
+    '2xl': '3rem',
+  },
+  
+  breakpoints: {
+    sm: '640px',
+    md: '768px',
+    lg: '1024px',
+    xl: '1280px',
+    '2xl': '1536px',
+  },
+  
+  transitions: {
+    fast: '150ms cubic-bezier(0.4, 0, 0.2, 1)',
+    normal: '200ms cubic-bezier(0.4, 0, 0.2, 1)',
+    slow: '300ms cubic-bezier(0.4, 0, 0.2, 1)',
+  },
+  
+  typography: {
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    letterSpacing: {
+      tight: '-0.03em',
+      normal: '0',
+      wide: '0.025em',
+    },
+  },
+};
+
+// Type definition
+declare module 'styled-components' {
+  export interface DefaultTheme {
+    colors: typeof theme.colors;
+    gradients: typeof theme.gradients;
+    shadows: typeof theme.shadows;
+    borderRadius: typeof theme.borderRadius;
+    spacing: typeof theme.spacing;
+    breakpoints: typeof theme.breakpoints;
+    transitions: typeof theme.transitions;
+    typography: typeof theme.typography;
+  }
+}
+```
+
+**Global Styles**
+
+```typescript
+// app/styles/GlobalStyles.ts
+import { createGlobalStyle } from 'styled-components';
+
+export const GlobalStyles = createGlobalStyle`
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: ${({ theme }) => theme.typography.fontFamily};
+    background-color: ${({ theme }) => theme.colors.slate[50]};
+    color: ${({ theme }) => theme.colors.slate[900]};
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  button, input, textarea, select {
+    font-family: inherit;
+    transition: all ${({ theme }) => theme.transitions.normal};
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: ${({ theme }) => theme.colors.slate[50]};
+    border-radius: ${({ theme }) => theme.borderRadius.sm};
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      to bottom,
+      ${({ theme }) => theme.colors.slate[300]},
+      ${({ theme }) => theme.colors.slate[400]}
+    );
+    border-radius: ${({ theme }) => theme.borderRadius.sm};
+
+    &:hover {
+      background: linear-gradient(
+        to bottom,
+        ${({ theme }) => theme.colors.slate[400]},
+        ${({ theme }) => theme.colors.slate[500]}
+      );
+    }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+`;
+```
+
+**Component Styling Example**
+
+```typescript
+// shared/ui/Button/Button.styles.ts
+import styled, { css } from 'styled-components';
+
+interface StyledButtonProps {
+  $variant: 'primary' | 'secondary' | 'ghost' | 'danger';
+  $size: 'sm' | 'md' | 'lg';
+  $fullWidth?: boolean;
+  $isLoading?: boolean;
+}
+
+export const StyledButton = styled.button<StyledButtonProps>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.borderRadius.xl};
+  transition: all ${({ theme }) => theme.transitions.normal};
+  cursor: pointer;
+  border: none;
+  outline: none;
+  position: relative;
+  
+  ${({ $size, theme }) => {
+    switch ($size) {
+      case 'sm':
+        return css`
+          padding: ${theme.spacing.sm} ${theme.spacing.md};
+          font-size: 0.875rem;
+        `;
+      case 'lg':
+        return css`
+          padding: ${theme.spacing.md} ${theme.spacing.xl};
+          font-size: 1rem;
+        `;
+      default:
+        return css`
+          padding: 0.625rem ${theme.spacing.lg};
+          font-size: 0.9375rem;
+        `;
+    }
+  }}
+
+  ${({ $variant, theme }) => {
+    switch ($variant) {
+      case 'primary':
+        return css`
+          background: ${theme.gradients.primaryButton};
+          color: white;
+          box-shadow: ${theme.shadows.primaryGlow};
+
+          &:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 20px 40px -5px rgba(37, 99, 235, 0.4);
+          }
+
+          &:active:not(:disabled) {
+            transform: translateY(0);
+          }
+        `;
+      case 'secondary':
+        return css`
+          background: white;
+          color: ${theme.colors.slate[700]};
+          border: 1px solid ${theme.colors.slate[200]};
+          box-shadow: ${theme.shadows.sm};
+
+          &:hover:not(:disabled) {
+            background: ${theme.colors.slate[50]};
+            border-color: ${theme.colors.slate[300]};
+          }
+        `;
+      case 'ghost':
+        return css`
+          background: transparent;
+          color: ${theme.colors.slate[700]};
+
+          &:hover:not(:disabled) {
+            background: ${theme.colors.slate[100]};
+          }
+        `;
+      case 'danger':
+        return css`
+          background: ${theme.colors.danger[600]};
+          color: white;
+
+          &:hover:not(:disabled) {
+            background: ${theme.colors.danger[700]};
+          }
+        `;
+    }
+  }}
+
+  ${({ $fullWidth }) =>
+    $fullWidth &&
+    css`
+      width: 100%;
+    `}
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  ${({ $isLoading }) =>
+    $isLoading &&
+    css`
+      pointer-events: none;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+    `}
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    font-size: 0.875rem;
+    padding: 0.5rem ${({ theme }) => theme.spacing.md};
+  }
+`;
+```
+
+```typescript
+// shared/ui/Button/Button.tsx
+import React from 'react';
+import { StyledButton } from './Button.styles';
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  fullWidth?: boolean;
+  isLoading?: boolean;
+  children: React.ReactNode;
+}
+
+export const Button: React.FC<ButtonProps> = ({
+  variant = 'primary',
+  size = 'md',
+  fullWidth = false,
+  isLoading = false,
+  children,
+  disabled,
+  ...props
+}) => {
+  return (
+    <StyledButton
+      $variant={variant}
+      $size={size}
+      $fullWidth={fullWidth}
+      $isLoading={isLoading}
+      disabled={disabled || isLoading}
+      {...props}
+    >
+      {!isLoading && children}
+    </StyledButton>
+  );
+};
+```
+
+### 2. API Layer with Comprehensive Error Handling
+
+**API Client with Session Management**
+
+```typescript
+// shared/api/client.ts
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { authStore } from '@/features/auth/store/authStore';
+import { ApiError } from './errors';
+
+export const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  withCredentials: true,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    return config;
+  },
+  (error: AxiosError) => {
+    return Promise.reject(error);
+  }
+);
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ApiErrorResponse>) => {
+    if (error.response) {
+      const { status, data } = error.response;
+
+      if (status === 401) {
+        authStore.getState().clearUser();
+        
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login?session=expired';
+        }
+        
+        return Promise.reject(
+          new ApiError(
+            status,
+            'Sesja wygasła. Zaloguj się ponownie.',
+            data?.errors
+          )
+        );
+      }
+
+      if (status === 403) {
+        return Promise.reject(
+          new ApiError(
+            status,
+            'Nie masz uprawnień do wykonania tej operacji.',
+            data?.errors
+          )
+        );
+      }
+
+      if (status === 404) {
+        return Promise.reject(
+          new ApiError(
+            status,
+            data?.message || 'Nie znaleziono zasobu.',
+            data?.errors
+          )
+        );
+      }
+
+      if (status === 409) {
+        return Promise.reject(
+          new ApiError(
+            status,
+            data?.message || 'Konflikt danych.',
+            data?.errors
+          )
+        );
+      }
+
+      if (status >= 500) {
+        return Promise.reject(
+          new ApiError(
+            status,
+            'Wystąpił błąd serwera. Spróbuj ponownie później.',
+            data?.errors
+          )
+        );
+      }
+
+      return Promise.reject(
+        new ApiError(
+          status,
+          data?.message || 'Wystąpił nieoczekiwany błąd.',
+          data?.errors
+        )
+      );
+    }
+
+    if (error.request) {
+      return Promise.reject(
+        new ApiError(
+          0,
+          'Brak połączenia z serwerem. Sprawdź połączenie internetowe.',
+          undefined
+        )
+      );
+    }
+
+    return Promise.reject(
+      new ApiError(
+        0,
+        'Wystąpił nieoczekiwany błąd.',
+        undefined
+      )
+    );
+  }
+);
+
+interface ApiErrorResponse {
+  message: string;
+  timestamp: string;
+  errors?: Record<string, string>;
+}
+```
+
+**Error Classes**
+
+```typescript
+// shared/api/errors.ts
+export class ApiError extends Error {
+  constructor(
+    public statusCode: number,
+    public message: string,
+    public errors?: Record<string, string>
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+
+  get isValidationError(): boolean {
+    return this.statusCode === 400 && Boolean(this.errors);
+  }
+
+  get isUnauthorized(): boolean {
+    return this.statusCode === 401;
+  }
+
+  get isForbidden(): boolean {
+    return this.statusCode === 403;
+  }
+
+  get isNotFound(): boolean {
+    return this.statusCode === 404;
+  }
+
+  get isServerError(): boolean {
+    return this.statusCode >= 500;
+  }
+
+  get isNetworkError(): boolean {
+    return this.statusCode === 0;
+  }
+}
+
+export const handleApiError = (error: unknown): ApiError => {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status ?? 0;
+    const message = error.response?.data?.message ?? 'Nieoczekiwany błąd';
+    const errors = error.response?.data?.errors;
+    
+    return new ApiError(status, message, errors);
+  }
+  
+  return new ApiError(0, 'Nieoczekiwany błąd aplikacji', undefined);
+};
+```
+
+**Global Error Boundary**
+
+```typescript
+// app/ErrorBoundary.tsx
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import styled from 'styled-components';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error?: Error;
+}
+
+const ErrorContainer = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: ${({ theme }) => theme.spacing.xl};
+  background: ${({ theme }) => theme.colors.slate[50]};
+`;
+
+const ErrorCard = styled.div`
+  background: white;
+  border-radius: ${({ theme }) => theme.borderRadius['2xl']};
+  padding: ${({ theme }) => theme.spacing['2xl']};
+  box-shadow: ${({ theme }) => theme.shadows.xl};
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+`;
+
+const IconWrapper = styled.div`
+  width: 64px;
+  height: 64px;
+  margin: 0 auto ${({ theme }) => theme.spacing.lg};
+  background: ${({ theme }) => theme.colors.danger[50]};
+  border-radius: ${({ theme }) => theme.borderRadius.full};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ErrorTitle = styled.h1`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.slate[900]};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ErrorMessage = styled.p`
+  color: ${({ theme }) => theme.colors.slate[600]};
+  margin-bottom: ${({ theme }) => theme.spacing.xl};
+  line-height: 1.6;
+`;
+
+const ReloadButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.xl};
+  background: ${({ theme }) => theme.gradients.primaryButton};
+  color: white;
+  border: none;
+  border-radius: ${({ theme }) => theme.borderRadius.xl};
+  font-weight: 600;
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.normal};
+  box-shadow: ${({ theme }) => theme.shadows.primaryGlow};
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px -5px rgba(37, 99, 235, 0.4);
+  }
+`;
+
+export class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false,
+  };
+
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
+  }
+
+  private handleReload = () => {
+    window.location.reload();
+  };
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <ErrorContainer>
+          <ErrorCard>
+            <IconWrapper>
+              <AlertCircle size={32} color="#dc2626" />
+            </IconWrapper>
+            <ErrorTitle>Coś poszło nie tak</ErrorTitle>
+            <ErrorMessage>
+              Przepraszamy, wystąpił nieoczekiwany błąd. Spróbuj odświeżyć stronę.
+            </ErrorMessage>
+            <ReloadButton onClick={this.handleReload}>
+              <RefreshCw size={16} />
+              Odśwież stronę
+            </ReloadButton>
+          </ErrorCard>
+        </ErrorContainer>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+### 3. React Query with Error Handling
+
+```typescript
+// shared/api/queryClient.ts
+import { QueryClient } from '@tanstack/react-query';
+import { toast } from 'react-hot-toast';
+import { ApiError } from './errors';
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError) {
+          if (error.isUnauthorized || error.isForbidden) {
+            return false;
+          }
+          if (error.isServerError && failureCount < 2) {
+            return true;
+          }
+        }
+        return false;
+      },
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+    },
+    mutations: {
+      retry: 0,
+      onError: (error) => {
+        if (error instanceof ApiError) {
+          if (!error.isUnauthorized) {
+            toast.error(error.message);
+          }
+        } else {
+          toast.error('Wystąpił nieoczekiwany błąd');
+        }
+      },
+    },
+  },
+});
+```
+
+**Hook with Error Handling Example**
+
+```typescript
+// features/children/hooks/useChildren.ts
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'react-hot-toast';
+import { childrenApi } from '../api/childrenApi';
+import { ApiError } from '@/shared/api/errors';
+import type { PaginationParams } from '@/shared/types/api';
+
+interface UseChildrenParams extends PaginationParams {
+  status?: string;
+}
+
+export const useChildren = (params: UseChildrenParams) => {
+  return useQuery({
+    queryKey: ['children', params],
+    queryFn: () => childrenApi.getAll(params),
+    staleTime: 30_000,
+    select: (data) => data,
+    onError: (error: unknown) => {
+      if (error instanceof ApiError) {
+        if (!error.isUnauthorized) {
+          toast.error(error.message);
+        }
+      }
+    },
+  });
+};
+```
+
+### 4. Card Component Example (Premium Design)
+
+```typescript
+// shared/ui/Card/Card.styles.ts
+import styled, { css } from 'styled-components';
+
+interface StyledCardProps {
+  $variant?: 'default' | 'glass' | 'gradient';
+  $hoverable?: boolean;
+}
+
+export const StyledCard = styled.div<StyledCardProps>`
+  background: white;
+  border-radius: ${({ theme }) => theme.borderRadius['2xl']};
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  overflow: hidden;
+  transition: all ${({ theme }) => theme.transitions.normal};
+
+  ${({ $variant, theme }) => {
+    switch ($variant) {
+      case 'glass':
+        return css`
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(40px);
+          border: 1px solid rgba(226, 232, 240, 0.6);
+        `;
+      case 'gradient':
+        return css`
+          background: ${theme.gradients.cardHeader};
+          border: 1px solid ${theme.colors.slate[200]};
+        `;
+      default:
+        return css`
+          background: white;
+        `;
+    }
+  }}
+
+  ${({ $hoverable }) =>
+    $hoverable &&
+    css`
+      cursor: pointer;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: ${({ theme }) => theme.shadows.lg};
+        border-color: ${({ theme }) => theme.colors.primary[200]};
+      }
+    `}
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+    border-radius: ${({ theme }) => theme.borderRadius.xl};
+  }
+`;
+
+export const CardHeader = styled.div<{ $gradient?: boolean }>`
+  padding: ${({ theme }) => theme.spacing.lg} ${({ theme }) => theme.spacing.xl};
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+
+  ${({ $gradient, theme }) =>
+    $gradient &&
+    css`
+      background: ${theme.gradients.cardHeader};
+    `}
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+    padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg};
+  }
+`;
+
+export const CardTitle = styled.h3`
+  font-size: 1rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.slate[900]};
+  letter-spacing: ${({ theme }) => theme.typography.letterSpacing.tight};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+    font-size: 0.9375rem;
+  }
+`;
+
+export const CardContent = styled.div`
+  padding: ${({ theme }) => theme.spacing.xl};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+    padding: ${({ theme }) => theme.spacing.lg};
+  }
+`;
+```
+
+### 5. Responsive Design Implementation
+
+**Media Query Hook**
+
+```typescript
+// shared/hooks/useMediaQuery.ts
+import { useState, useEffect } from 'react';
+import { theme } from '@/app/styles/theme';
+
+export const useMediaQuery = (breakpoint: keyof typeof theme.breakpoints) => {
+  const query = `(max-width: ${theme.breakpoints[breakpoint]})`;
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, [query]);
+
+  return matches;
+};
+```
+
+**Responsive Component Example**
+
+```typescript
+// features/children/components/ChildrenList/ChildrenList.tsx
+import React, { useState } from 'react';
+import { useChildren } from '../../hooks/useChildren';
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
+import { ChildrenListItem } from './ChildrenListItem';
+import { ChildrenListSkeleton } from './ChildrenListSkeleton';
+import { Table } from '@/shared/ui/Table';
+import { Pagination } from '@/shared/ui/Pagination';
+import { Alert } from '@/shared/ui/Alert';
+import { ChildCard } from '../ChildCard';
+
+interface ChildrenListProps {
+  status?: string;
+}
+
+export const ChildrenList: React.FC<ChildrenListProps> = ({ status }) => {
+  const [page, setPage] = useState(0);
+  const { data, isLoading, error } = useChildren({ 
+    page, 
+    size: 20, 
+    status 
+  });
+  const isMobile = useMediaQuery('md');
+
+  if (isLoading) return <ChildrenListSkeleton />;
+  
+  if (error) {
+    return (
+      <Alert variant="error">
+        Nie udało się załadować listy dzieci. Spróbuj ponownie.
+      </Alert>
+    );
+  }
+
+  if (!data?.content.length) {
+    return (
+      <Alert variant="info">
+        Brak dzieci do wyświetlenia.
+      </Alert>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        {data.content.map((child) => (
+          <ChildCard key={child.id} child={child} />
+        ))}
+        <Pagination
+          currentPage={page}
+          totalPages={data.totalPages}
+          onPageChange={setPage}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Table>
+        <Table.Header>
+          <Table.Row>
+            <Table.Head>Imię i nazwisko</Table.Head>
+            <Table.Head>Wiek</Table.Head>
+            <Table.Head>Status</Table.Head>
+            <Table.Head>Niepełnosprawność</Table.Head>
+            <Table.Head>Opiekunowie</Table.Head>
+            <Table.Head className="text-right">Akcje</Table.Head>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {data.content.map((child) => (
+            <ChildrenListItem key={child.id} child={child} />
+          ))}
+        </Table.Body>
+      </Table>
+
+      <Pagination
+        currentPage={page}
+        totalPages={data.totalPages}
+        onPageChange={setPage}
+      />
+    </div>
+  );
+};
+```
+
+## Production-Ready Standards
+
+### Code Quality Requirements
+
+1. **No Mock Data**: All components must use real API data through React Query hooks
+2. **No TODO Comments**: Complete all implementations before commit
+3. **No Placeholder Text**: Use actual content or proper empty states
+4. **Type Safety**: Use TypeScript strict mode, no `any` types
+5. **Error Handling**: Every API call must have proper error handling
+6. **Loading States**: All async operations must show loading indicators
+7. **Empty States**: Provide meaningful empty states for lists and data
+8. **Accessibility**: All interactive elements must be keyboard accessible
+9. **Responsiveness**: Every component must work on mobile, tablet, and desktop
+10. **Performance**: Use React.memo, useMemo, useCallback where appropriate
+
+### Component Structure Rules
+
+```typescript
+// ✅ GOOD: Clear, typed, production-ready
+interface ChildCardProps {
+  child: Child;
+  onEdit?: (id: string) => void;
+}
+
+export const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit }) => {
+  const handleEdit = () => {
+    onEdit?.(child.id);
+  };
+
+  return (
+    <StyledCard onClick={handleEdit}>
+      <CardContent>
+        <ChildInfo child={child} />
+        <ChildStatus status={child.status} />
+      </CardContent>
+    </StyledCard>
+  );
+};
+
+// ❌ BAD: No types, mock data, TODO comments
+export const ChildCard = ({ child }) => {
+  // TODO: Implement edit functionality
+  const mockChild = { name: 'Test', age: 10 };
+  
+  return (
+    <div onClick={() => console.log('edit')}>
+      {/* TODO: Add proper styling */}
+      <div>{mockChild.name}</div>
+    </div>
+  );
+};
+```
+
+### File Organization Rules
+
+1. **Max 200 lines per file** - Split larger files into smaller modules
+2. **One component per file** - Except for tightly coupled sub-components
+3. **Co-locate styles** - Keep `.styles.ts` files next to components
+4. **Group by feature** - Not by technical type
+5. **Named exports** - Prefer named exports over default exports for better refactoring
+
+### Styling Best Practices
+
+1. **Use theme values** - Never hardcode colors, spacing, or breakpoints
+2. **Mobile-first** - Start with mobile styles, add desktop with media queries
+3. **Consistent spacing** - Use theme spacing scale consistently
+4. **Reusable patterns** - Extract common style patterns into theme
+5. **Performance** - Avoid inline styles, use styled-components for dynamic styles
+
+### Testing Requirements
+
+```typescript
+// features/children/components/ChildCard/ChildCard.test.tsx
+import { render, screen } from '@testing-library/react';
+import { ThemeProvider } from 'styled-components';
+import { theme } from '@/app/styles/theme';
+import { ChildCard } from './ChildCard';
+
+const mockChild = {
+  id: 'CH-001',
+  firstName: 'Anna',
+  lastName: 'Kowalska',
+  age: 9,
+  status: 'ACTIVE',
+  disability: ['INTELLECTUAL'],
+};
+
+const renderWithTheme = (component: React.ReactElement) => {
+  return render(
+    <ThemeProvider theme={theme}>
+      {component}
+    </ThemeProvider>
+  );
+};
+
+describe('ChildCard', () => {
+  it('renders child information correctly', () => {
+    renderWithTheme(<ChildCard child={mockChild} />);
+    
+    expect(screen.getByText('Anna Kowalska')).toBeInTheDocument();
+    expect(screen.getByText('9 lat')).toBeInTheDocument();
+  });
+
+  it('displays correct status badge', () => {
+    renderWithTheme(<ChildCard child={mockChild} />);
+    
+    expect(screen.getByText('Aktywny')).toBeInTheDocument();
+  });
+
+  it('calls onEdit when clicked', () => {
+    const onEdit = jest.fn();
+    renderWithTheme(<ChildCard child={mockChild} onEdit={onEdit} />);
+    
+    screen.getByRole('button').click();
+    expect(onEdit).toHaveBeenCalledWith('CH-001');
+  });
+});
+```
+
+## Key Principles
+
+1. **Feature Isolation**: Each feature is self-contained with its own API, hooks, components, and utilities
+2. **Small Files**: No file should exceed 200 lines. Split into smaller modules
+3. **Type Safety**: TypeScript strict mode, Zod for runtime validation, no `any` types
+4. **Security First**: Role-based guards, automatic session handling, comprehensive error handling
+5. **Performance**: Code splitting, React Query caching, optimistic updates, memoization
+6. **Consistency**: Follow established patterns across all features
+7. **Responsiveness**: Every component works perfectly on all screen sizes
+8. **Accessibility**: Keyboard navigation, ARIA labels, semantic HTML
+9. **Production Ready**: No mocks, no TODOs, complete error handling, full type coverage
+10. **Testability**: Each layer can be tested independently
+
+## Development Workflow
+
+### Environment Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
+
+# Testing
+npm run test
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+### Git Workflow
+
+```bash
+# Feature branch naming
+feature/children-list
+feature/route-detail-view
+fix/session-expiry-handling
+
+# Commit message format
+feat(children): add child detail view with responsive design
+fix(api): handle session expiry correctly
+style(button): update hover states to match design system
+refactor(routes): split RouteDetail into smaller components
+```
+
+## Naming Conventions
+
+- **Components**: PascalCase (`ChildrenList.tsx`, `RouteCard.tsx`)
+- **Styles**: Component name + `.styles.ts` (`ChildrenList.styles.ts`)
+- **Hooks**: camelCase with `use` prefix (`useChildren.ts`, `useAuth.ts`)
+- **Utils**: camelCase (`formatDate.ts`, `validatePhone.ts`)
+- **Types**: PascalCase (`Child`, `Route`, `CreateChildRequest`)
+- **Interfaces**: PascalCase with descriptive names (`ChildCardProps`, `UseChildrenParams`)
+- **Constants**: UPPER_SNAKE_CASE (`MAX_PAGE_SIZE`, `API_TIMEOUT`)
+- **Files**: Match primary export name
+
+---
+
+**This is a production-ready architecture. Every component must be:**
+- Fully typed with TypeScript
+- Styled with styled-components following the theme
+- Responsive across all breakpoints
+- Accessible with proper ARIA attributes
+- Error-handled with comprehensive error states
+- Performance-optimized with proper memoization
+- Complete without any TODOs or mock data

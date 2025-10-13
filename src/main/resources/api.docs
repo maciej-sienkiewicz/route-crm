@@ -860,6 +860,46 @@ json{
   "updatedAt": "2025-01-15T11:00:00Z"
 }
 
+GET /api/schedules/{id}
+Description: Get schedule details by ID
+Roles: ADMIN, OPERATOR, GUARDIAN (if schedule belongs to own child)
+Response 200:
+json
+{
+  "id": "SCH-550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "CMP-550e8400-e29b-41d4-a716-446655440000",
+  "childId": "CH-550e8400-e29b-41d4-a716-446655440000",
+  "name": "Do szkoły",
+  "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+  "pickupTime": "07:30",
+  "pickupAddress": {
+    "label": "Dom",
+    "street": "ul. Słoneczna",
+    "houseNumber": "15",
+    "apartmentNumber": "5",
+    "postalCode": "00-001",
+    "city": "Warszawa"
+  },
+  "dropoffTime": "08:15",
+  "dropoffAddress": {
+    "label": "Szkoła",
+    "street": "ul. Piękna",
+    "houseNumber": "5",
+    "postalCode": "00-123",
+    "city": "Warszawa"
+  },
+  "specialInstructions": "Dzwonek przy furtce, zawsze dzwonić przed przyjazdem",
+  "active": true,
+  "createdAt": "2025-01-15T10:30:00Z",
+  "updatedAt": "2025-01-15T10:30:00Z"
+}
+Response 404:
+json
+{
+  "message": "Schedule SCH-550e8400-e29b-41d4-a716-446655440000 not found",
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+
 DELETE /api/schedules/{id}
 Description: Delete schedule
 Roles: ADMIN, OPERATOR
