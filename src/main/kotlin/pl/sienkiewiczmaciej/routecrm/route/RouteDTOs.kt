@@ -7,8 +7,11 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
+import pl.sienkiewiczmaciej.routecrm.child.TransportNeedsResponse
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
+import pl.sienkiewiczmaciej.routecrm.child.domain.DisabilityType
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.route.availablechildren.AvailableChildItem
 import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteCommand
 import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteResult
 import pl.sienkiewiczmaciej.routecrm.route.create.RouteChildData
@@ -27,6 +30,7 @@ import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.Period
 
 data class RouteChildRequest(
     @field:NotBlank(message = "Child ID is required")
@@ -367,3 +371,59 @@ data class AddRouteNoteResponse(
         )
     }
 }
+
+data class AvailableChildResponse(
+    val id: String,
+    val firstName: String,
+    val lastName: String,
+    val age: Int,
+    val disability: Set<DisabilityType>,
+    val transportNeeds: TransportNeedsResponse,
+    val schedule: AvailableChildScheduleResponse,
+    val guardian: AvailableChildGuardianResponse
+) {
+    companion object {
+        fun from(item: AvailableChildItem, referenceDate: LocalDate): AvailableChildResponse {
+            val age = Period.between(item.birthDate, referenceDate).years
+
+            return AvailableChildResponse(
+                id = item.childId.value,
+                firstName = item.firstName,
+                lastName = item.lastName,
+                age = age,
+                disability = item.disability,
+                transportNeeds = TransportNeedsResponse.from(item.transportNeeds),
+                schedule = AvailableChildScheduleResponse(
+                    id = item.scheduleId.value,
+                    name = item.scheduleName,
+                    pickupTime = item.pickupTime,
+                    dropoffTime = item.dropoffTime,
+                    pickupAddress = ScheduleAddressResponse.from(item.pickupAddress),
+                    dropoffAddress = ScheduleAddressResponse.from(item.dropoffAddress)
+                ),
+                guardian = AvailableChildGuardianResponse(
+                    firstName = item.guardianFirstName,
+                    lastName = item.guardianLastName,
+                    phone = item.guardianPhone
+                )
+            )
+        }
+    }
+}
+
+data class AvailableChildScheduleResponse(
+    val id: String,
+    val name: String,
+    @JsonFormat(pattern = "HH:mm")
+    val pickupTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
+    val dropoffTime: LocalTime,
+    val pickupAddress: ScheduleAddressResponse,
+    val dropoffAddress: ScheduleAddressResponse
+)
+
+data class AvailableChildGuardianResponse(
+    val firstName: String,
+    val lastName: String,
+    val phone: String
+)

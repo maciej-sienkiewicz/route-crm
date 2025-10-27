@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.route.availablechildren.ListAvailableChildrenHandler
+import pl.sienkiewiczmaciej.routecrm.route.availablechildren.ListAvailableChildrenQuery
 import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteHandler
 import pl.sienkiewiczmaciej.routecrm.route.delete.DeleteRouteCommand
 import pl.sienkiewiczmaciej.routecrm.route.delete.DeleteRouteHandler
@@ -38,7 +40,8 @@ class RouteController(
     private val updateStatusHandler: UpdateRouteStatusHandler,
     private val updateChildStatusHandler: UpdateChildStatusHandler,
     private val addNoteHandler: AddRouteNoteHandler,
-    private val deleteHandler: DeleteRouteHandler
+    private val deleteHandler: DeleteRouteHandler,
+    private val availableChildrenHandler: ListAvailableChildrenHandler,
 ) : BaseController() {
 
     @PostMapping
@@ -139,5 +142,19 @@ class RouteController(
         )
         deleteHandler.handle(principal, command)
         return ResponseEntity.status(NO_CONTENT).build()
+    }
+
+    @GetMapping("/available-children")
+    suspend fun getAvailableChildren(
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) date: LocalDate
+    ): List<AvailableChildResponse> {
+        val principal = getPrincipal()
+        val query = ListAvailableChildrenQuery(
+            companyId = principal.companyId,
+            date = date
+        )
+        return availableChildrenHandler.handle(principal, query).map { item ->
+            AvailableChildResponse.from(item, date)
+        }
     }
 }
