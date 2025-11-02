@@ -24,6 +24,7 @@ import pl.sienkiewiczmaciej.routecrm.route.updatechildstatus.UpdateChildStatusRe
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateStatusResult
 import pl.sienkiewiczmaciej.routecrm.schedule.ScheduleAddressRequest
 import pl.sienkiewiczmaciej.routecrm.schedule.ScheduleAddressResponse
+import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
@@ -63,8 +64,19 @@ data class RouteChildRequest(
         childId = ChildId.from(childId),
         scheduleId = ScheduleId.from(scheduleId),
         pickupOrder = pickupOrder,
-        pickupAddress = pickupAddress.toDomain(),
-        dropoffAddress = dropoffAddress.toDomain(),
+        // Budujemy pełny ScheduleAddress (bez współrzędnych - zostaną skopiowane z harmonogramu)
+        pickupAddress = ScheduleAddress(
+            label = pickupAddress.label,
+            address = pickupAddress.toDomainAddress(),
+            latitude = null,  // Będą pobrane z harmonogramu
+            longitude = null
+        ),
+        dropoffAddress = ScheduleAddress(
+            label = dropoffAddress.label,
+            address = dropoffAddress.toDomainAddress(),
+            latitude = null,  // Będą pobrane z harmonogramu
+            longitude = null
+        ),
         estimatedPickupTime = estimatedPickupTime,
         estimatedDropoffTime = estimatedDropoffTime
     )

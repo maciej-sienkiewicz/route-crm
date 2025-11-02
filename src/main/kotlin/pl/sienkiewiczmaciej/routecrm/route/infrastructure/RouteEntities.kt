@@ -151,6 +151,12 @@ class RouteChildEntity(
     @Column(name = "pickup_address_city", nullable = false, length = 100)
     val pickupAddressCity: String,
 
+    @Column(name = "pickup_latitude")
+    val pickupLatitude: Double?,
+
+    @Column(name = "pickup_longitude")
+    val pickupLongitude: Double?,
+
     @Column(name = "dropoff_address_label", length = 100)
     val dropoffAddressLabel: String?,
 
@@ -168,6 +174,12 @@ class RouteChildEntity(
 
     @Column(name = "dropoff_address_city", nullable = false, length = 100)
     val dropoffAddressCity: String,
+
+    @Column(name = "dropoff_latitude")
+    val dropoffLatitude: Double?,
+
+    @Column(name = "dropoff_longitude")
+    val dropoffLongitude: Double?,
 
     @Column(name = "estimated_pickup_time", nullable = false)
     val estimatedPickupTime: LocalTime,
@@ -206,7 +218,9 @@ class RouteChildEntity(
                 apartmentNumber = pickupAddressApartmentNumber,
                 postalCode = pickupAddressPostalCode,
                 city = pickupAddressCity
-            )
+            ),
+            latitude = pickupLatitude,
+            longitude = pickupLongitude
         ),
         dropoffAddress = ScheduleAddress(
             label = dropoffAddressLabel,
@@ -216,7 +230,9 @@ class RouteChildEntity(
                 apartmentNumber = dropoffAddressApartmentNumber,
                 postalCode = dropoffAddressPostalCode,
                 city = dropoffAddressCity
-            )
+            ),
+            latitude = dropoffLatitude,
+            longitude = dropoffLongitude
         ),
         estimatedPickupTime = estimatedPickupTime,
         estimatedDropoffTime = estimatedDropoffTime,
@@ -239,12 +255,16 @@ class RouteChildEntity(
             pickupAddressApartmentNumber = routeChild.pickupAddress.address.apartmentNumber,
             pickupAddressPostalCode = routeChild.pickupAddress.address.postalCode,
             pickupAddressCity = routeChild.pickupAddress.address.city,
+            pickupLatitude = routeChild.pickupAddress.latitude,
+            pickupLongitude = routeChild.pickupAddress.longitude,
             dropoffAddressLabel = routeChild.dropoffAddress.label,
             dropoffAddressStreet = routeChild.dropoffAddress.address.street,
             dropoffAddressHouseNumber = routeChild.dropoffAddress.address.houseNumber,
             dropoffAddressApartmentNumber = routeChild.dropoffAddress.address.apartmentNumber,
             dropoffAddressPostalCode = routeChild.dropoffAddress.address.postalCode,
             dropoffAddressCity = routeChild.dropoffAddress.address.city,
+            dropoffLatitude = routeChild.dropoffAddress.latitude,
+            dropoffLongitude = routeChild.dropoffAddress.longitude,
             estimatedPickupTime = routeChild.estimatedPickupTime,
             estimatedDropoffTime = routeChild.estimatedDropoffTime,
             actualPickupTime = routeChild.actualPickupTime,

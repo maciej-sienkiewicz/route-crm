@@ -26,7 +26,9 @@ enum class DayOfWeek {
 
 data class ScheduleAddress(
     val label: String?,
-    val address: Address
+    val address: Address,
+    val latitude: Double?,
+    val longitude: Double?
 )
 
 data class Schedule(

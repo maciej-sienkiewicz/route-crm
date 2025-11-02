@@ -61,6 +61,12 @@ class ScheduleEntity(
     @Column(name = "pickup_address_city", nullable = false, length = 100)
     val pickupAddressCity: String,
 
+    @Column(name = "pickup_latitude")
+    val pickupLatitude: Double?,
+
+    @Column(name = "pickup_longitude")
+    val pickupLongitude: Double?,
+
     @Column(name = "dropoff_time", nullable = false)
     val dropoffTime: LocalTime,
 
@@ -81,6 +87,12 @@ class ScheduleEntity(
 
     @Column(name = "dropoff_address_city", nullable = false, length = 100)
     val dropoffAddressCity: String,
+
+    @Column(name = "dropoff_latitude")
+    val dropoffLatitude: Double?,
+
+    @Column(name = "dropoff_longitude")
+    val dropoffLongitude: Double?,
 
     @Column(name = "special_instructions", columnDefinition = "text")
     val specialInstructions: String?,
@@ -109,7 +121,9 @@ class ScheduleEntity(
                 apartmentNumber = pickupAddressApartmentNumber,
                 postalCode = pickupAddressPostalCode,
                 city = pickupAddressCity
-            )
+            ),
+            latitude = pickupLatitude,
+            longitude = pickupLongitude
         ),
         dropoffTime = dropoffTime,
         dropoffAddress = ScheduleAddress(
@@ -120,7 +134,9 @@ class ScheduleEntity(
                 apartmentNumber = dropoffAddressApartmentNumber,
                 postalCode = dropoffAddressPostalCode,
                 city = dropoffAddressCity
-            )
+            ),
+            latitude = dropoffLatitude,
+            longitude = dropoffLongitude
         ),
         specialInstructions = specialInstructions,
         active = active
@@ -140,6 +156,8 @@ class ScheduleEntity(
             pickupAddressApartmentNumber = schedule.pickupAddress.address.apartmentNumber,
             pickupAddressPostalCode = schedule.pickupAddress.address.postalCode,
             pickupAddressCity = schedule.pickupAddress.address.city,
+            pickupLatitude = schedule.pickupAddress.latitude,
+            pickupLongitude = schedule.pickupAddress.longitude,
             dropoffTime = schedule.dropoffTime,
             dropoffAddressLabel = schedule.dropoffAddress.label,
             dropoffAddressStreet = schedule.dropoffAddress.address.street,
@@ -147,6 +165,8 @@ class ScheduleEntity(
             dropoffAddressApartmentNumber = schedule.dropoffAddress.address.apartmentNumber,
             dropoffAddressPostalCode = schedule.dropoffAddress.address.postalCode,
             dropoffAddressCity = schedule.dropoffAddress.address.city,
+            dropoffLatitude = schedule.dropoffAddress.latitude,
+            dropoffLongitude = schedule.dropoffAddress.longitude,
             specialInstructions = schedule.specialInstructions,
             active = schedule.active
         )

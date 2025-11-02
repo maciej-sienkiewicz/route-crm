@@ -19,7 +19,6 @@ import pl.sienkiewiczmaciej.routecrm.schedule.update.UpdateScheduleResult
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import java.time.Instant
 import java.time.LocalTime
-import java.time.temporal.ChronoUnit
 
 data class ScheduleAddressRequest(
     @field:Size(max = 100)
@@ -39,15 +38,12 @@ data class ScheduleAddressRequest(
     @field:Valid
     val city: String
 ) {
-    fun toDomain() = ScheduleAddress(
-        label = label?.trim(),
-        address = pl.sienkiewiczmaciej.routecrm.shared.domain.Address(
-            street = street.trim(),
-            houseNumber = houseNumber.trim(),
-            apartmentNumber = apartmentNumber?.trim(),
-            postalCode = postalCode.trim(),
-            city = city.trim()
-        )
+    fun toDomainAddress() = pl.sienkiewiczmaciej.routecrm.shared.domain.Address(
+        street = street.trim(),
+        houseNumber = houseNumber.trim(),
+        apartmentNumber = apartmentNumber?.trim(),
+        postalCode = postalCode.trim(),
+        city = city.trim()
     )
 }
 
@@ -57,7 +53,9 @@ data class ScheduleAddressResponse(
     val houseNumber: String,
     val apartmentNumber: String?,
     val postalCode: String,
-    val city: String
+    val city: String,
+    val latitude: Double?,
+    val longitude: Double?
 ) {
     companion object {
         fun from(scheduleAddress: ScheduleAddress) = ScheduleAddressResponse(
@@ -66,7 +64,9 @@ data class ScheduleAddressResponse(
             houseNumber = scheduleAddress.address.houseNumber,
             apartmentNumber = scheduleAddress.address.apartmentNumber,
             postalCode = scheduleAddress.address.postalCode,
-            city = scheduleAddress.address.city
+            city = scheduleAddress.address.city,
+            latitude = scheduleAddress.latitude,
+            longitude = scheduleAddress.longitude
         )
     }
 }
@@ -102,9 +102,11 @@ data class CreateScheduleRequest(
         name = name,
         days = days,
         pickupTime = pickupTime,
-        pickupAddress = pickupAddress.toDomain(),
+        pickupAddressData = pickupAddress.toDomainAddress(),
+        pickupAddressLabel = pickupAddress.label,
         dropoffTime = dropoffTime,
-        dropoffAddress = dropoffAddress.toDomain(),
+        dropoffAddressData = dropoffAddress.toDomainAddress(),
+        dropoffAddressLabel = dropoffAddress.label,
         specialInstructions = specialInstructions
     )
 }
@@ -126,17 +128,17 @@ data class ScheduleResponse(
     val createdAt: Instant
 ) {
     companion object {
-        fun from(result: CreateScheduleResult, pickupAddress: ScheduleAddress, dropoffAddress: ScheduleAddress, specialInstructions: String?) = ScheduleResponse(
+        fun from(result: CreateScheduleResult) = ScheduleResponse(
             id = result.id.value,
             childId = result.childId.value,
             companyId = result.companyId.value,
             name = result.name,
             days = result.days,
             pickupTime = result.pickupTime,
-            pickupAddress = ScheduleAddressResponse.from(pickupAddress),
+            pickupAddress = ScheduleAddressResponse.from(result.pickupAddress),  // ← Ma już współrzędne!
             dropoffTime = result.dropoffTime,
-            dropoffAddress = ScheduleAddressResponse.from(dropoffAddress),
-            specialInstructions = specialInstructions,
+            dropoffAddress = ScheduleAddressResponse.from(result.dropoffAddress), // ← Ma już współrzędne!
+            specialInstructions = result.specialInstructions,
             active = result.active,
             createdAt = Instant.now()
         )
@@ -235,9 +237,11 @@ data class UpdateScheduleRequest(
         name = name,
         days = days,
         pickupTime = pickupTime,
-        pickupAddress = pickupAddress.toDomain(),
+        pickupAddressData = pickupAddress.toDomainAddress(),
+        pickupAddressLabel = pickupAddress.label,
         dropoffTime = dropoffTime,
-        dropoffAddress = dropoffAddress.toDomain(),
+        dropoffAddressData = dropoffAddress.toDomainAddress(),
+        dropoffAddressLabel = dropoffAddress.label,
         specialInstructions = specialInstructions,
         active = active
     )

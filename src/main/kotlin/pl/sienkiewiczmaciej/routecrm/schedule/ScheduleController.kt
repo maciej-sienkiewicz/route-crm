@@ -35,14 +35,8 @@ class ScheduleController(
         val principal = getPrincipal()
         val command = request.toCommand(principal.companyId, ChildId.from(childId))
         val result = createHandler.handle(principal, command)
-        return ResponseEntity.status(CREATED).body(
-            ScheduleResponse.from(
-                result,
-                command.pickupAddress,
-                command.dropoffAddress,
-                command.specialInstructions
-            )
-        )
+        // result już zawiera wszystko (włącznie z geokodowanymi adresami)
+        return ResponseEntity.status(CREATED).body(ScheduleResponse.from(result))
     }
 
     @GetMapping("/children/{childId}/schedules")
