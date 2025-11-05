@@ -82,6 +82,30 @@ data class RouteChildRequest(
     )
 }
 
+enum class RoutePointType {
+    PICKUP,
+    DROPOFF
+}
+
+data class RoutePointRequest(
+    @field:NotBlank(message = "Child ID is required")
+    val childId: String,
+
+    @field:NotBlank(message = "Schedule ID is required")
+    val scheduleId: String,
+
+    @field:NotNull(message = "Point type is required")
+    val type: RoutePointType,
+
+    @field:NotNull(message = "Order is required")
+    @field:Min(1, message = "Order must be at least 1")
+    val order: Int,
+
+    @field:NotNull(message = "Estimated time is required")
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedTime: LocalTime
+)
+
 data class CreateRouteRequest(
     @field:NotBlank(message = "Route name is required")
     @field:Size(min = 1, max = 255)
@@ -105,8 +129,8 @@ data class CreateRouteRequest(
     val estimatedEndTime: LocalTime,
 
     @field:Valid
-    @field:NotEmpty(message = "At least one child is required")
-    val children: List<RouteChildRequest>
+    @field:NotEmpty(message = "At least one point is required")
+    val points: List<RoutePointRequest>
 ) {
     fun toCommand(companyId: CompanyId) = CreateRouteCommand(
         companyId = companyId,
@@ -116,7 +140,7 @@ data class CreateRouteRequest(
         vehicleId = VehicleId.from(vehicleId),
         estimatedStartTime = estimatedStartTime,
         estimatedEndTime = estimatedEndTime,
-        children = children.map { it.toData() }
+        points = points
     )
 }
 
