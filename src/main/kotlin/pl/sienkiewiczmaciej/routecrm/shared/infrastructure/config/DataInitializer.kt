@@ -370,36 +370,6 @@ class DataInitializer(
             )
             scheduleRepository.save(schedule1)
 
-            // Harmonogram 2: Poniedziałek - Środa (po południu ze szkoły)
-            val schedule2 = ScheduleEntity(
-                id = "SCH-${UUID.randomUUID()}",
-                companyId = companyId,
-                childId = child.id,
-                name = "Poniedziałek-Środa - Powrót",
-                days = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY),
-                pickupTime = LocalTime.of(14, 12 + (index % 4) * 10),
-                pickupAddressLabel = schoolAddress.first,
-                pickupAddressStreet = schoolAddress.second,
-                pickupAddressHouseNumber = "${10 + index % 5}",
-                pickupAddressApartmentNumber = null,
-                pickupAddressPostalCode = "61-${String.format("%03d", (200 + index * 3) % 1000)}",
-                pickupAddressCity = schoolAddress.third,
-                pickupLatitude = 52.4164 + (index * 0.001),
-                pickupLongitude = 16.9352 + (index * 0.001),
-                dropoffTime = LocalTime.of(15, 15 + (index % 4) * 10),
-                dropoffAddressLabel = "Dom",
-                dropoffAddressStreet = homeStreet,
-                dropoffAddressHouseNumber = "${(index + 1) * 5}",
-                dropoffAddressApartmentNumber = if (index % 3 == 0) "${index + 10}" else null,
-                dropoffAddressPostalCode = "61-${String.format("%03d", (100 + index * 5) % 1000)}",
-                dropoffAddressCity = "Poznań",
-                dropoffLatitude = 52.4064 + (index * 0.001),
-                dropoffLongitude = 16.9252 + (index * 0.001),
-                specialInstructions = null,
-                active = true
-            )
-            scheduleRepository.save(schedule2)
-
             // Harmonogram 3: Czwartek - Piątek (rano)
             val schedule3 = ScheduleEntity(
                 id = "SCH-${UUID.randomUUID()}",
@@ -430,40 +400,9 @@ class DataInitializer(
             )
             scheduleRepository.save(schedule3)
 
-            // Harmonogram 4: Czwartek - Piątek (po południu) - tylko dla co drugiego dziecka
-            if (index % 2 == 0) {
-                val schedule4 = ScheduleEntity(
-                    id = "SCH-${UUID.randomUUID()}",
-                    companyId = companyId,
-                    childId = child.id,
-                    name = "Czwartek-Piątek - Powrót",
-                    days = setOf(DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
-                    pickupTime = LocalTime.of(14, 12 + (index % 4) * 10),
-                    pickupAddressLabel = schoolAddress.first,
-                    pickupAddressStreet = schoolAddress.second,
-                    pickupAddressHouseNumber = "${10 + index % 5}",
-                    pickupAddressApartmentNumber = null,
-                    pickupAddressPostalCode = "61-${String.format("%03d", (200 + index * 3) % 1000)}",
-                    pickupAddressCity = schoolAddress.third,
-                    pickupLatitude = 52.4164 + (index * 0.001),
-                    pickupLongitude = 16.9352 + (index * 0.001),
-                    dropoffTime = LocalTime.of(15, 12 + (index % 4) * 10),
-                    dropoffAddressLabel = "Dom",
-                    dropoffAddressStreet = homeStreet,
-                    dropoffAddressHouseNumber = "${(index + 1) * 5}",
-                    dropoffAddressApartmentNumber = if (index % 3 == 0) "${index + 10}" else null,
-                    dropoffAddressPostalCode = "61-${String.format("%03d", (100 + index * 5) % 1000)}",
-                    dropoffAddressCity = "Poznań",
-                    dropoffLatitude = 52.4064 + (index * 0.001),
-                    dropoffLongitude = 16.9252 + (index * 0.001),
-                    specialInstructions = if (index % 3 == 0) "Kontakt z opiekunem przed odjazdem" else null,
-                    active = true
-                )
-                scheduleRepository.save(schedule4)
-            }
+            // Harmonogram 4: Czwartek - Piątek (po południu) - USUNIĘTY
         }
     }
-
         private fun createVehicles(companyId: String): List<VehicleEntity> {
             val vehicleData = listOf(
                 // Busy
