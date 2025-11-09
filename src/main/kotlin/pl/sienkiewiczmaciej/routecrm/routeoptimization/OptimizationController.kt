@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import pl.sienkiewiczmaciej.routecrm.routeoptimization.apply.ApplyOptimizationCommand
+import pl.sienkiewiczmaciej.routecrm.routeoptimization.apply.ApplyOptimizationHandler
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.domain.OptimizationStatus
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.domain.OptimizationTaskId
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.getresult.GetOptimizationResultHandler
@@ -17,6 +19,10 @@ import pl.sienkiewiczmaciej.routecrm.routeoptimization.optimize.RouteType
 import pl.sienkiewiczmaciej.routecrm.shared.api.BaseController
 import java.time.LocalDate
 import java.time.LocalTime
+
+// ============================================
+// REQUEST DTOs
+// ============================================
 
 data class OptimizeRoutesRequest(
     @field:NotNull(message = "Date is required")
@@ -32,6 +38,10 @@ data class OptimizeRoutesRequest(
 
     val routeType: RouteType = RouteType.ALL
 )
+
+// ============================================
+// RESPONSE DTOs
+// ============================================
 
 data class OptimizeRoutesResponse(
     val taskId: String,
@@ -84,13 +94,27 @@ data class ApplyOptimizationResponse(
     val message: String
 )
 
+// ============================================
+// CONTROLLER
+// ============================================
+
 @RestController
 @RequestMapping("/api/route-optimization")
 class OptimizationController(
     private val optimizeHandler: OptimizeRoutesHandler,
     private val getResultHandler: GetOptimizationResultHandler,
+    private val applyOptimizationHandler: ApplyOptimizationHandler
 ) : BaseController() {
 
+    /**
+     * Rozpoczyna proces optymalizacji tras dla podanej daty.
+     * Optymalizacja pod kątem NAJKRÓTSZEJ DROGI (type="shortest").
+     *
+     * Endpoint: POST /api/route-optimization/optimize
+     *
+     * @param request Parametry optymalizacji (data, czas rozpoczęcia/zakończenia, typ trasy)
+     * @return TaskId wraz ze statusem PENDING lub PROCESSING
+     */
     @PostMapping("/optimize")
     suspend fun optimize(
         @Valid @RequestBody request: OptimizeRoutesRequest
@@ -115,6 +139,14 @@ class OptimizationController(
         )
     }
 
+    /**
+     * Pobiera wynik optymalizacji dla danego taska.
+     *
+     * Endpoint: GET /api/route-optimization/tasks/{taskId}
+     *
+     * @param taskId ID taska optymalizacji
+     * @return Szczegółowy wynik optymalizacji z trasami i nieprzypisanymi dziećmi
+     */
     @GetMapping("/tasks/{taskId}")
     suspend fun getResult(@PathVariable taskId: String): OptimizationResultResponse {
         val principal = getPrincipal()
@@ -157,6 +189,41 @@ class OptimizationController(
                 )
             },
             unassignedChildren = result.unassignedChildren.map { it.value }
+        )
+    }
+
+    /**
+     * Aplikuje wynik optymalizacji - tworzy rzeczywiste trasy w systemie.
+     * Trasy tworzone są z zachowaniem kolejności zoptymalizowanej przez Geoapify
+     * (najkrótsza droga).
+     *
+     * Endpoint: POST /api/route-optimization/tasks/{taskId}/apply
+     *
+     * @param taskId ID taska optymalizacji do zaaplikowania
+     * @return Raport z utworzonych tras, sukcesów i błędów
+     */
+    @PostMapping("/tasks/{taskId}/apply")
+    suspend fun applyOptimization(@PathVariable taskId: String): ApplyOptimizationResponse {
+        val principal = getPrincipal()
+        val command = ApplyOptimizationCommand(
+            companyId = principal.companyId,
+            taskId = OptimizationTaskId.from(taskId)
+        )
+
+        val result = applyOptimizationHandler.handle(principal, command)
+
+        return ApplyOptimizationResponse(
+            createdRoutes = result.createdRoutes.map { it.value },
+            successCount = result.successCount,
+            failedCount = result.failedCount,
+            errors = result.errors.map { error ->
+                "Route ${error.routeIndex + 1} (Vehicle ${error.vehicleId}): ${error.error}"
+            },
+            message = when {
+                result.failedCount == 0 -> "All ${result.successCount} routes created successfully"
+                result.successCount == 0 -> "Failed to create all routes"
+                else -> "${result.successCount} routes created, ${result.failedCount} failed"
+            }
         )
     }
 }

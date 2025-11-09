@@ -14,6 +14,10 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestTemplate
 
+// ============================================
+// REQUEST MODELS - Z NULLABLE FIELDS
+// ============================================
+
 data class GeoapifyAgent(
     @JsonProperty("start_location")
     val startLocation: List<Double>,
@@ -32,14 +36,14 @@ data class GeoapifyPickup(
     val location: List<Double>,
     val duration: Int,
     @JsonProperty("time_windows")
-    val timeWindows: List<List<Int>>? = null
+    val timeWindows: List<List<Int>>? = null // NULLABLE - dla najkrótszej drogi
 )
 
 data class GeoapifyDelivery(
     val location: List<Double>,
     val duration: Int,
     @JsonProperty("time_windows")
-    val timeWindows: List<List<Int>>? = null
+    val timeWindows: List<List<Int>>? = null // NULLABLE - dla najkrótszej drogi
 )
 
 data class GeoapifyShipment(
@@ -47,7 +51,7 @@ data class GeoapifyShipment(
     val pickup: GeoapifyPickup,
     val delivery: GeoapifyDelivery,
     val amount: Int? = null,
-    val priority: Int? = null,
+    val priority: Int? = null, // NULLABLE - wszystkie równe dla najkrótszej drogi
     val requirements: List<String>? = null,
     val description: String? = null
 )
@@ -57,8 +61,12 @@ data class GeoapifyOptimizationRequest(
     val agents: List<GeoapifyAgent>,
     val shipments: List<GeoapifyShipment>,
     val traffic: String? = "approximated",
-    val type: String? = "balanced"
+    val type: String? = "shortest" // "shortest" = minimalizacja dystansu, "balanced" = balans czasu i dystansu
 )
+
+// ============================================
+// RESPONSE MODELS
+// ============================================
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class GeoapifyOptimizationResponse(
@@ -126,6 +134,10 @@ data class GeoapifyWaypoint(
     val actions: List<GeoapifyAction>
 )
 
+// ============================================
+// CLIENT
+// ============================================
+
 @Service
 class GeoapifyRouteOptimizerClient(
     @Value("\${geoapify.api.key:}")
@@ -147,7 +159,10 @@ class GeoapifyRouteOptimizerClient(
                 val url = "$apiUrl?apiKey=$apiKey"
                 val requestJson = objectMapper.writeValueAsString(request)
 
-                logger.debug("Sending optimization request to Geoapify: $requestJson")
+                logger.debug("Sending optimization request to Geoapify")
+                logger.debug("Request type: ${request.type}")
+                logger.debug("Agents: ${request.agents.size}")
+                logger.debug("Shipments: ${request.shipments.size}")
 
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_JSON
@@ -155,10 +170,25 @@ class GeoapifyRouteOptimizerClient(
                 val entity = HttpEntity(requestJson, headers)
                 val response = restTemplate.postForObject(url, entity, String::class.java)
 
-                logger.debug("Received optimization response: $response")
+                logger.debug("Received optimization response from Geoapify")
 
                 response?.let {
-                    objectMapper.readValue(it, GeoapifyOptimizationResponse::class.java)
+                    val parsedResponse = objectMapper.readValue(it, GeoapifyOptimizationResponse::class.java)
+
+                    // Log wyników
+                    logger.info("Optimization completed:")
+                    parsedResponse.features.forEachIndexed { index, feature ->
+                        val plan = feature.properties
+                        logger.info("Route ${index + 1}: distance=${plan.distance}m, time=${plan.time}s, stops=${plan.actions.size}")
+                    }
+
+                    parsedResponse.properties.issues?.let { issues ->
+                        if (!issues.unassignedShipments.isNullOrEmpty()) {
+                            logger.warn("Unassigned shipments: ${issues.unassignedShipments.size}")
+                        }
+                    }
+
+                    parsedResponse
                 }
             } catch (e: Exception) {
                 logger.error("Error calling Geoapify Route Optimizer: ${e.message}", e)

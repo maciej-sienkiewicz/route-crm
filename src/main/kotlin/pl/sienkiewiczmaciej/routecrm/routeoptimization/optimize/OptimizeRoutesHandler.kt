@@ -34,9 +34,9 @@ data class OptimizeRoutesCommand(
 )
 
 enum class RouteType {
-    ALL,        // Wszystkie harmonogramy
-    MORNING,    // Tylko harmonogramy poranne (pickup < 12:00)
-    AFTERNOON   // Tylko harmonogramy popołudniowe (pickup >= 12:00)
+    ALL,
+    MORNING,
+    AFTERNOON
 }
 
 data class VehicleAvailability(
@@ -127,7 +127,6 @@ class OptimizeRoutesHandler(
             command.endTime
         )
 
-        // Przygotuj metadata dla późniejszego parsowania
         val metadata = OptimizationMetadata(
             vehicleMapping = availableVehicles.associate {
                 it.vehicleId.value to VehicleDriverPair(
@@ -175,7 +174,6 @@ class OptimizeRoutesHandler(
             Pageable.unpaged()
         )
 
-        // Pobierz wszystkich dostępnych kierowców
         val drivers = driverRepository.findByCompanyIdAndStatus(
             companyId.value,
             DriverStatus.ACTIVE,
@@ -183,11 +181,10 @@ class OptimizeRoutesHandler(
         ).content.toMutableList()
 
         vehicles.content.mapNotNull { vehicle ->
-            // Przypisz kierowcę do pojazdu (prosty algorytm - w produkcji sprawdzaj dostępność)
             val driver = drivers.firstOrNull()
 
             if (driver != null) {
-                drivers.remove(driver) // Usuń aby nie przypisać go do innego pojazdu
+                drivers.remove(driver)
 
                 VehicleAvailability(
                     vehicleId = VehicleId.from(vehicle.id),
@@ -195,9 +192,8 @@ class OptimizeRoutesHandler(
                     capacity = vehicle.capacityTotalSeats,
                     wheelchairCapacity = vehicle.capacityWheelchairSpaces,
                     childSeatCapacity = vehicle.capacityChildSeats,
-                    // Użyj centrum obszaru dzieci lub skonfiguruj w company
-                    baseLatitude = 52.4164,
-                    baseLongitude = 16.9354
+                    baseLatitude = 52.4064,
+                    baseLongitude = 16.9252
                 )
             } else {
                 logger.warn("No available driver for vehicle ${vehicle.id}")
@@ -219,7 +215,6 @@ class OptimizeRoutesHandler(
                     schedule.days.contains(dayOfWeek)
         }
 
-        // Filtruj według typu trasy
         val filteredSchedules = when (routeType) {
             RouteType.MORNING -> schedules.filter { it.pickupTime.hour < 12 }
             RouteType.AFTERNOON -> schedules.filter { it.pickupTime.hour >= 12 }
@@ -264,7 +259,7 @@ class OptimizeRoutesHandler(
         val endTimeSeconds = endTime.toSecondOfDay()
         val workingTimeSeconds = endTimeSeconds - startTimeSeconds
 
-        val agents = vehicles.mapIndexed { index, vehicle ->
+        val agents = vehicles.map { vehicle ->
             GeoapifyAgent(
                 startLocation = listOf(vehicle.baseLongitude, vehicle.baseLatitude),
                 endLocation = listOf(vehicle.baseLongitude, vehicle.baseLatitude),
@@ -276,28 +271,26 @@ class OptimizeRoutesHandler(
                     if (vehicle.childSeatCapacity > 0) add("child-seat")
                 },
                 id = vehicle.vehicleId.value,
-                description = "Vehicle ${index + 1}"
+                description = "Vehicle ${vehicle.vehicleId.value}"
             )
         }
 
+        // Dla najkrótszej drogi - bardzo szerokie time windows lub ich brak
         val shipments = children.map { child ->
-            val pickupTimeWindow = calculateTimeWindow(child.pickupTime, startTime)
-            val dropoffTimeWindow = calculateTimeWindow(child.dropoffTime, startTime)
-
             GeoapifyShipment(
                 id = child.getUniqueShipmentId(),
                 pickup = GeoapifyPickup(
                     location = listOf(child.pickupLongitude, child.pickupLatitude),
                     duration = child.pickupDuration,
-                    timeWindows = listOf(pickupTimeWindow)
+                    timeWindows = null // Bez ograniczeń czasowych
                 ),
                 delivery = GeoapifyDelivery(
                     location = listOf(child.dropoffLongitude, child.dropoffLatitude),
                     duration = child.dropoffDuration,
-                    timeWindows = listOf(dropoffTimeWindow)
+                    timeWindows = null // Bez ograniczeń czasowych
                 ),
                 amount = 1,
-                priority = 100,
+                priority = null, // Bez priorytetów - wszystkie równe
                 requirements = buildList {
                     if (child.requiresWheelchair) add("wheelchair")
                     if (child.requiresChildSeat) add("child-seat")
@@ -307,25 +300,15 @@ class OptimizeRoutesHandler(
         }
 
         logger.info("Created ${agents.size} agents and ${shipments.size} shipments for optimization")
+        logger.info("Optimization type: shortest (minimizing distance)")
 
         return GeoapifyOptimizationRequest(
             mode = "drive",
             agents = agents,
             shipments = shipments,
             traffic = "approximated",
-            type = "balanced"
+            type = "shortest" // NAJWAŻNIEJSZE: Optymalizacja pod kątem najkrótszej drogi
         )
-    }
-
-    private fun calculateTimeWindow(targetTime: LocalTime, startTime: LocalTime): List<Int> {
-        val targetSeconds = targetTime.toSecondOfDay()
-        val startSeconds = startTime.toSecondOfDay()
-        val relativeSeconds = targetSeconds - startSeconds
-
-        val windowStart = maxOf(0, relativeSeconds - 900)
-        val windowEnd = relativeSeconds + 900
-
-        return listOf(windowStart, windowEnd)
     }
 
     private suspend fun processOptimizationAsync(
@@ -372,7 +355,6 @@ class OptimizeRoutesHandler(
     }
 }
 
-// Metadata do przechowywania mapowań
 data class OptimizationMetadata(
     val vehicleMapping: Map<String, VehicleDriverPair>,
     val childMapping: Map<String, ChildSchedulePair>
