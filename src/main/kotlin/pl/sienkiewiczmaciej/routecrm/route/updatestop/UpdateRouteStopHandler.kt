@@ -10,6 +10,7 @@ import pl.sienkiewiczmaciej.routecrm.shared.api.NotFoundException
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.external.GeocodingService
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 import java.time.LocalTime
 
@@ -23,7 +24,8 @@ data class UpdateRouteStopCommand(
 
 data class UpdateRouteStopResult(
     val id: RouteStopId,
-    val estimatedTime: LocalTime
+    val estimatedTime: LocalTime,
+    val address: ScheduleAddress
 )
 
 class RouteStopNotFoundException(stopId: RouteStopId) :
@@ -33,6 +35,7 @@ class RouteStopNotFoundException(stopId: RouteStopId) :
 class UpdateRouteStopHandler(
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
+    private val geocodingService: GeocodingService,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -64,12 +67,25 @@ class UpdateRouteStopHandler(
             }"
         }
 
-        val updated = stop.updateDetails(command.estimatedTime, command.address)
+        // Geokoduj nowy adres
+        val geocodingResult = geocodingService.geocodeAddress(command.address.address)
+
+        val addressWithCoordinates = if (geocodingResult != null) {
+            command.address.copy(
+                latitude = geocodingResult.latitude,
+                longitude = geocodingResult.longitude
+            )
+        } else {
+            command.address
+        }
+
+        val updated = stop.updateDetails(command.estimatedTime, addressWithCoordinates)
         val saved = stopRepository.save(updated)
 
         return UpdateRouteStopResult(
             id = saved.id,
-            estimatedTime = saved.estimatedTime
+            estimatedTime = saved.estimatedTime,
+            address = saved.address
         )
     }
 }

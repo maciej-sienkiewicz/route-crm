@@ -193,7 +193,6 @@ data class RouteStop(
     }
 
     fun updateOrder(newOrder: Int): RouteStop {
-        require(newOrder > 0) { "Stop order must be positive" }
         require(!isCancelled) { "Cannot reorder cancelled stop" }
         require(!isExecuted()) { "Cannot reorder executed stop" }
         return copy(stopOrder = newOrder)

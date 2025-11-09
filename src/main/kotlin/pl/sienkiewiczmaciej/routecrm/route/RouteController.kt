@@ -11,15 +11,15 @@ import org.springframework.http.HttpStatus.NO_CONTENT
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
-import pl.sienkiewiczmaciej.routecrm.route.addstop.AddRouteStopHandler
+import pl.sienkiewiczmaciej.routecrm.route.addschedule.AddRouteScheduleHandler
 import pl.sienkiewiczmaciej.routecrm.route.availablechildren.ListAvailableChildrenHandler
 import pl.sienkiewiczmaciej.routecrm.route.availablechildren.ListAvailableChildrenQuery
-import pl.sienkiewiczmaciej.routecrm.route.cancelstop.CancelRouteStopHandler
+import pl.sienkiewiczmaciej.routecrm.route.cancelschedule.CancelRouteScheduleHandler
 import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteHandler
 import pl.sienkiewiczmaciej.routecrm.route.delete.DeleteRouteCommand
 import pl.sienkiewiczmaciej.routecrm.route.delete.DeleteRouteHandler
-import pl.sienkiewiczmaciej.routecrm.route.deletestop.DeleteRouteStopCommand
-import pl.sienkiewiczmaciej.routecrm.route.deletestop.DeleteRouteStopHandler
+import pl.sienkiewiczmaciej.routecrm.route.deleteschedule.DeleteRouteScheduleCommand
+import pl.sienkiewiczmaciej.routecrm.route.deleteschedule.DeleteRouteScheduleHandler
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
@@ -33,6 +33,8 @@ import pl.sienkiewiczmaciej.routecrm.route.note.AddRouteNoteHandler
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsHandler
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateRouteStatusCommand
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateRouteStatusHandler
+import pl.sienkiewiczmaciej.routecrm.route.updatestop.UpdateRouteStopHandler
+import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.api.BaseController
 import java.time.LocalDate
 
@@ -43,10 +45,11 @@ class RouteController(
     private val listHandler: ListRoutesHandler,
     private val getHandler: GetRouteHandler,
     private val updateStatusHandler: UpdateRouteStatusHandler,
-    private val addStopHandler: AddRouteStopHandler,
+    private val addScheduleHandler: AddRouteScheduleHandler,
+    private val updateStopHandler: UpdateRouteStopHandler,
     private val reorderStopsHandler: ReorderRouteStopsHandler,
-    private val deleteStopHandler: DeleteRouteStopHandler,
-    private val cancelStopHandler: CancelRouteStopHandler,
+    private val deleteScheduleHandler: DeleteRouteScheduleHandler,
+    private val cancelScheduleHandler: CancelRouteScheduleHandler,
     private val executeStopHandler: ExecuteRouteStopHandler,
     private val addNoteHandler: AddRouteNoteHandler,
     private val deleteHandler: DeleteRouteHandler,
@@ -122,17 +125,45 @@ class RouteController(
         return UpdateRouteStatusResponse.from(result)
     }
 
-    @PostMapping("/{routeId}/stops")
-    suspend fun addStop(
+    /**
+     * Dodaje schedule (pickup + dropoff) do trasy.
+     * Endpoint: POST /api/routes/{routeId}/schedules
+     */
+    @PostMapping("/{routeId}/schedules")
+    suspend fun addSchedule(
         @PathVariable routeId: String,
-        @Valid @RequestBody request: AddRouteStopRequest
-    ): ResponseEntity<Void> {
+        @Valid @RequestBody request: AddRouteScheduleRequest
+    ): ResponseEntity<AddRouteScheduleResponse> {
         val principal = getPrincipal()
         val command = request.toCommand(principal.companyId, RouteId.from(routeId))
-        addStopHandler.handle(principal, command)
-        return ResponseEntity.status(CREATED).build()
+        val result = addScheduleHandler.handle(principal, command)
+        return ResponseEntity.status(CREATED).body(AddRouteScheduleResponse.from(result))
     }
 
+    /**
+     * Aktualizuje pojedynczy stop (dla jednorazowych zmian adresu).
+     * Endpoint: PATCH /api/routes/{routeId}/stops/{stopId}
+     */
+    @PatchMapping("/{routeId}/stops/{stopId}")
+    suspend fun updateStop(
+        @PathVariable routeId: String,
+        @PathVariable stopId: String,
+        @Valid @RequestBody request: UpdateRouteStopRequest
+    ): UpdateRouteStopResponse {
+        val principal = getPrincipal()
+        val command = request.toCommand(
+            principal.companyId,
+            RouteId.from(routeId),
+            RouteStopId.from(stopId)
+        )
+        val result = updateStopHandler.handle(principal, command)
+        return UpdateRouteStopResponse.from(result)
+    }
+
+    /**
+     * Zmienia kolejność stopów w trasie.
+     * Endpoint: PATCH /api/routes/{routeId}/stops/reorder
+     */
     @PatchMapping("/{routeId}/stops/reorder")
     suspend fun reorderStops(
         @PathVariable routeId: String,
@@ -144,37 +175,49 @@ class RouteController(
         return ReorderStopsResponse.from(result)
     }
 
-    @DeleteMapping("/{routeId}/stops/{stopId}")
-    suspend fun deleteStop(
+    /**
+     * Usuwa schedule (pickup + dropoff) z trasy.
+     * Endpoint: DELETE /api/routes/{routeId}/schedules/{scheduleId}
+     */
+    @DeleteMapping("/{routeId}/schedules/{scheduleId}")
+    suspend fun deleteSchedule(
         @PathVariable routeId: String,
-        @PathVariable stopId: String
+        @PathVariable scheduleId: String
     ): ResponseEntity<Void> {
         val principal = getPrincipal()
-        val command = DeleteRouteStopCommand(
+        val command = DeleteRouteScheduleCommand(
             companyId = principal.companyId,
             routeId = RouteId.from(routeId),
-            stopId = RouteStopId.from(stopId)
+            scheduleId = ScheduleId.from(scheduleId)
         )
-        deleteStopHandler.handle(principal, command)
+        deleteScheduleHandler.handle(principal, command)
         return ResponseEntity.status(NO_CONTENT).build()
     }
 
-    @PostMapping("/{routeId}/stops/{stopId}/cancel")
-    suspend fun cancelStop(
+    /**
+     * Anuluje schedule (pickup + dropoff) w trasie.
+     * Endpoint: POST /api/routes/{routeId}/schedules/{scheduleId}/cancel
+     */
+    @PostMapping("/{routeId}/schedules/{scheduleId}/cancel")
+    suspend fun cancelSchedule(
         @PathVariable routeId: String,
-        @PathVariable stopId: String,
-        @Valid @RequestBody request: CancelRouteStopRequest
-    ): CancelRouteStopResponse {
+        @PathVariable scheduleId: String,
+        @Valid @RequestBody request: CancelRouteScheduleRequest
+    ): CancelRouteScheduleResponse {
         val principal = getPrincipal()
         val command = request.toCommand(
             principal.companyId,
             RouteId.from(routeId),
-            RouteStopId.from(stopId)
+            ScheduleId.from(scheduleId)
         )
-        val result = cancelStopHandler.handle(principal, command)
-        return CancelRouteStopResponse.from(result)
+        val result = cancelScheduleHandler.handle(principal, command)
+        return CancelRouteScheduleResponse.from(result)
     }
 
+    /**
+     * Wykonuje pojedynczy stop (pickup lub dropoff).
+     * Endpoint: POST /api/routes/{routeId}/stops/{stopId}/execute
+     */
     @PostMapping("/{routeId}/stops/{stopId}/execute")
     suspend fun executeStop(
         @PathVariable routeId: String,

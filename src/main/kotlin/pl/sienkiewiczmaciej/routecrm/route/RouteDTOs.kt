@@ -12,8 +12,13 @@ import pl.sienkiewiczmaciej.routecrm.child.TransportNeedsResponse
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.child.domain.DisabilityType
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.route.addschedule.AddRouteScheduleCommand
+import pl.sienkiewiczmaciej.routecrm.route.addschedule.AddRouteScheduleResult
+import pl.sienkiewiczmaciej.routecrm.route.addschedule.RouteStopCreationData
 import pl.sienkiewiczmaciej.routecrm.route.addstop.AddRouteStopCommand
 import pl.sienkiewiczmaciej.routecrm.route.availablechildren.AvailableChildItem
+import pl.sienkiewiczmaciej.routecrm.route.cancelschedule.CancelRouteScheduleCommand
+import pl.sienkiewiczmaciej.routecrm.route.cancelschedule.CancelRouteScheduleResult
 import pl.sienkiewiczmaciej.routecrm.route.cancelstop.CancelRouteStopCommand
 import pl.sienkiewiczmaciej.routecrm.route.cancelstop.CancelRouteStopResult
 import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteCommand
@@ -30,6 +35,8 @@ import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsCommand
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsResult
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.StopOrderUpdate
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateStatusResult
+import pl.sienkiewiczmaciej.routecrm.route.updatestop.UpdateRouteStopCommand
+import pl.sienkiewiczmaciej.routecrm.route.updatestop.UpdateRouteStopResult
 import pl.sienkiewiczmaciej.routecrm.schedule.ScheduleAddressRequest
 import pl.sienkiewiczmaciej.routecrm.schedule.ScheduleAddressResponse
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
@@ -561,3 +568,142 @@ data class AvailableChildGuardianResponse(
     val lastName: String,
     val phone: String
 )
+
+data class UpdateRouteStopRequest(
+    @field:NotNull(message = "Estimated time is required")
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedTime: LocalTime,
+
+    @field:Valid
+    @field:NotNull(message = "Address is required")
+    val address: ScheduleAddressRequest
+) {
+    fun toCommand(companyId: CompanyId, routeId: RouteId, stopId: RouteStopId) =
+        UpdateRouteStopCommand(
+            companyId = companyId,
+            routeId = routeId,
+            stopId = stopId,
+            estimatedTime = estimatedTime,
+            address = ScheduleAddress(
+                label = address.label,
+                address = address.toDomainAddress(),
+                latitude = null, // Będzie uzupełnione przez handler
+                longitude = null
+            )
+        )
+}
+
+data class UpdateRouteStopResponse(
+    val id: String,
+    val estimatedTime: LocalTime,
+    val address: ScheduleAddressResponse,
+    val updatedAt: Instant
+) {
+    companion object {
+        fun from(result: UpdateRouteStopResult) = UpdateRouteStopResponse(
+            id = result.id.value,
+            estimatedTime = result.estimatedTime,
+            address = ScheduleAddressResponse.from(result.address),
+            updatedAt = Instant.now()
+        )
+    }
+}
+
+data class AddRouteScheduleRequest(
+    @field:NotBlank(message = "Child ID is required")
+    val childId: String,
+
+    @field:NotBlank(message = "Schedule ID is required")
+    val scheduleId: String,
+
+    @field:Valid
+    @field:NotNull(message = "Pickup stop is required")
+    val pickupStop: RouteStopDataRequest,
+
+    @field:Valid
+    @field:NotNull(message = "Dropoff stop is required")
+    val dropoffStop: RouteStopDataRequest
+) {
+    fun toCommand(companyId: CompanyId, routeId: RouteId) = AddRouteScheduleCommand(
+        companyId = companyId,
+        routeId = routeId,
+        childId = ChildId.from(childId),
+        scheduleId = ScheduleId.from(scheduleId),
+        pickupStop = pickupStop.toData(StopType.PICKUP),
+        dropoffStop = dropoffStop.toData(StopType.DROPOFF)
+    )
+}
+
+data class RouteStopDataRequest(
+    @field:NotNull(message = "Stop order is required")
+    @field:Min(1, message = "Stop order must be at least 1")
+    val stopOrder: Int,
+
+    @field:NotNull(message = "Estimated time is required")
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedTime: LocalTime,
+
+    @field:Valid
+    @field:NotNull(message = "Address is required")
+    val address: ScheduleAddressRequest
+) {
+    fun toData(stopType: StopType) = RouteStopCreationData(
+        stopOrder = stopOrder,
+        stopType = stopType,
+        estimatedTime = estimatedTime,
+        address = ScheduleAddress(
+            label = address.label,
+            address = address.toDomainAddress(),
+            latitude = null,
+            longitude = null
+        )
+    )
+}
+
+data class AddRouteScheduleResponse(
+    val pickupStopId: String,
+    val dropoffStopId: String,
+    val scheduleId: String,
+    val childId: String
+) {
+    companion object {
+        fun from(result: AddRouteScheduleResult) = AddRouteScheduleResponse(
+            pickupStopId = result.pickupStopId.value,
+            dropoffStopId = result.dropoffStopId.value,
+            scheduleId = result.scheduleId.value,
+            childId = result.childId.value
+        )
+    }
+}
+
+data class CancelRouteScheduleRequest(
+    @field:NotBlank(message = "Cancellation reason is required")
+    @field:Size(max = 5000)
+    val reason: String
+) {
+    fun toCommand(companyId: CompanyId, routeId: RouteId, scheduleId: ScheduleId) =
+        CancelRouteScheduleCommand(
+            companyId = companyId,
+            routeId = routeId,
+            scheduleId = scheduleId,
+            reason = reason
+        )
+}
+
+data class CancelRouteScheduleResponse(
+    val scheduleId: String,
+    val pickupStopId: String,
+    val dropoffStopId: String,
+    val cancelledStopsCount: Int,
+    val cancelledAt: Instant
+) {
+    companion object {
+        fun from(result: CancelRouteScheduleResult) = CancelRouteScheduleResponse(
+            scheduleId = result.scheduleId.value,
+            pickupStopId = result.pickupStopId.value,
+            dropoffStopId = result.dropoffStopId.value,
+            cancelledStopsCount = result.cancelledStopsCount,
+            cancelledAt = result.cancelledAt
+        )
+    }
+}

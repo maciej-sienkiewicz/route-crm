@@ -65,7 +65,8 @@ class ReorderRouteStopsHandler(
             "Duplicate stop orders are not allowed"
         }
 
-        val stopsToUpdate = command.stopOrders.map { update ->
+        // Walidacja że wszystkie stopy mogą być modyfikowane
+        command.stopOrders.forEach { update ->
             val stop = stopIdToStopMap[update.stopId]!!
             require(stop.canBeModified()) {
                 "Cannot reorder stop ${stop.id.value}: ${
@@ -76,14 +77,26 @@ class ReorderRouteStopsHandler(
                     }
                 }"
             }
-            stop.updateOrder(update.newOrder)
         }
 
-        stopRepository.saveAll(stopsToUpdate)
+        val stopsWithTemporaryOrder = command.stopOrders.mapIndexed { index, update ->
+            val stop = stopIdToStopMap[update.stopId]!!
+            stop.updateOrder(-(index + 1))
+        }
+        stopRepository.saveAll(stopsWithTemporaryOrder)
+
+        val refreshedStops = stopRepository.findByRoute(command.companyId, command.routeId)
+        val refreshedStopMap = refreshedStops.associateBy { it.id }
+
+        val stopsWithFinalOrder = command.stopOrders.map { update ->
+            val stop = refreshedStopMap[update.stopId]!!
+            stop.updateOrder(update.newOrder)
+        }
+        stopRepository.saveAll(stopsWithFinalOrder)
 
         return ReorderRouteStopsResult(
             routeId = command.routeId,
-            updatedStopsCount = stopsToUpdate.size
+            updatedStopsCount = stopsWithFinalOrder.size
         )
     }
 }
