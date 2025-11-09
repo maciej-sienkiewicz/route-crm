@@ -1,3 +1,4 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteRepositoriesImpl.kt
 package pl.sienkiewiczmaciej.routecrm.route.infrastructure
 
 import kotlinx.coroutines.Dispatchers
@@ -6,7 +7,6 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
-import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -73,14 +73,16 @@ class RouteRepositoryImpl(
         driverId: DriverId,
         date: LocalDate,
         startTime: LocalTime,
-        endTime: LocalTime
+        endTime: LocalTime,
+        excludeRouteId: RouteId?
     ): Boolean = withContext(Dispatchers.IO) {
         jpaRepository.existsDriverConflict(
             companyId.value,
             driverId.value,
             date,
             startTime,
-            endTime
+            endTime,
+            excludeRouteId?.value
         )
     }
 
@@ -89,55 +91,61 @@ class RouteRepositoryImpl(
         vehicleId: VehicleId,
         date: LocalDate,
         startTime: LocalTime,
-        endTime: LocalTime
+        endTime: LocalTime,
+        excludeRouteId: RouteId?
     ): Boolean = withContext(Dispatchers.IO) {
         jpaRepository.existsVehicleConflict(
             companyId.value,
             vehicleId.value,
             date,
             startTime,
-            endTime
+            endTime,
+            excludeRouteId?.value
         )
     }
 }
 
 @Repository
-class RouteChildRepositoryImpl(
-    private val jpaRepository: RouteChildJpaRepository
-) : RouteChildRepository {
+class RouteStopRepositoryImpl(
+    private val jpaRepository: RouteStopJpaRepository
+) : RouteStopRepository {
 
-    override suspend fun save(routeChild: RouteChild): RouteChild = withContext(Dispatchers.IO) {
-        val entity = RouteChildEntity.fromDomain(routeChild)
+    override suspend fun save(stop: RouteStop): RouteStop = withContext(Dispatchers.IO) {
+        val entity = RouteStopEntity.fromDomain(stop)
         jpaRepository.save(entity).toDomain()
     }
 
-    override suspend fun findById(companyId: CompanyId, id: RouteChildId): RouteChild? =
+    override suspend fun saveAll(stops: List<RouteStop>): List<RouteStop> =
+        withContext(Dispatchers.IO) {
+            val entities = stops.map { RouteStopEntity.fromDomain(it) }
+            jpaRepository.saveAll(entities).map { it.toDomain() }
+        }
+
+    override suspend fun findById(companyId: CompanyId, id: RouteStopId): RouteStop? =
         withContext(Dispatchers.IO) {
             jpaRepository.findByIdAndCompanyId(id.value, companyId.value)?.toDomain()
         }
 
-    override suspend fun findByRoute(companyId: CompanyId, routeId: RouteId): List<RouteChild> =
-        withContext(Dispatchers.IO) {
-            jpaRepository.findByCompanyIdAndRouteId(companyId.value, routeId.value)
-                .map { it.toDomain() }
-        }
-
-    override suspend fun findByRouteAndChild(
+    override suspend fun findByRoute(
         companyId: CompanyId,
         routeId: RouteId,
-        childId: ChildId
-    ): RouteChild? = withContext(Dispatchers.IO) {
-        jpaRepository.findByCompanyIdAndRouteIdAndChildId(
+        includeCancelled: Boolean
+    ): List<RouteStop> = withContext(Dispatchers.IO) {
+        jpaRepository.findByCompanyIdAndRouteId(
             companyId.value,
             routeId.value,
-            childId.value
-        )?.toDomain()
+            includeCancelled
+        ).map { it.toDomain() }
     }
 
-    override suspend fun countByRoute(companyId: CompanyId, routeId: RouteId): Int =
+    @Transactional
+    override suspend fun delete(companyId: CompanyId, id: RouteStopId) {
         withContext(Dispatchers.IO) {
-            jpaRepository.countByCompanyIdAndRouteId(companyId.value, routeId.value)
+            val entity = jpaRepository.findByIdAndCompanyId(id.value, companyId.value)
+                ?: return@withContext
+            jpaRepository.delete(entity)
         }
+    }
 
     @Transactional
     override suspend fun deleteByRoute(companyId: CompanyId, routeId: RouteId) {
@@ -146,21 +154,10 @@ class RouteChildRepositoryImpl(
         }
     }
 
-    override suspend fun hasChildConflict(
-        companyId: CompanyId,
-        childId: ChildId,
-        date: LocalDate,
-        pickupTime: LocalTime,
-        dropoffTime: LocalTime
-    ): Boolean = withContext(Dispatchers.IO) {
-        jpaRepository.existsChildConflict(
-            companyId.value,
-            childId.value,
-            date,
-            pickupTime,
-            dropoffTime
-        )
-    }
+    override suspend fun countByRoute(companyId: CompanyId, routeId: RouteId): Int =
+        withContext(Dispatchers.IO) {
+            jpaRepository.countByCompanyIdAndRouteId(companyId.value, routeId.value)
+        }
 }
 
 @Repository

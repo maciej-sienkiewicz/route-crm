@@ -1,5 +1,7 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/create/CreateRouteHandler.kt
 package pl.sienkiewiczmaciej.routecrm.route.create
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
@@ -10,8 +12,6 @@ import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverRepository
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverStatus
 import pl.sienkiewiczmaciej.routecrm.driver.getbyid.DriverNotFoundException
-import pl.sienkiewiczmaciej.routecrm.route.RoutePointRequest
-import pl.sienkiewiczmaciej.routecrm.route.RoutePointType
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
@@ -27,14 +27,13 @@ import pl.sienkiewiczmaciej.routecrm.vehicle.getbyid.VehicleNotFoundException
 import java.time.LocalDate
 import java.time.LocalTime
 
-data class RouteChildData(
+data class RouteStopData(
+    val stopOrder: Int,
+    val stopType: StopType,
     val childId: ChildId,
     val scheduleId: ScheduleId,
-    val pickupOrder: Int,
-    val pickupAddress: ScheduleAddress,
-    val dropoffAddress: ScheduleAddress,
-    val estimatedPickupTime: LocalTime,
-    val estimatedDropoffTime: LocalTime
+    val estimatedTime: LocalTime,
+    val address: ScheduleAddress
 )
 
 data class CreateRouteCommand(
@@ -45,7 +44,7 @@ data class CreateRouteCommand(
     val vehicleId: VehicleId,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
-    val points: List<RoutePointRequest>
+    val stops: List<RouteStopData>
 )
 
 data class CreateRouteResult(
@@ -58,25 +57,32 @@ data class CreateRouteResult(
     val vehicleId: VehicleId,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
-    val childrenCount: Int
+    val stopsCount: Int
 )
 
 @Component
+@JsonIgnoreProperties
 class CreateRouteHandler(
     private val routeRepository: RouteRepository,
-    private val routeChildRepository: RouteChildRepository,
+    private val stopRepository: RouteStopRepository,
     private val childRepository: ChildRepository,
     private val driverRepository: DriverRepository,
     private val vehicleRepository: VehicleRepository,
     private val scheduleRepository: ScheduleRepository,
-    private val authService: AuthorizationService
+    private val authService: AuthorizationService,
 ) {
     @Transactional
     suspend fun handle(principal: UserPrincipal, command: CreateRouteCommand): CreateRouteResult {
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR)
         authService.requireSameCompany(principal.companyId, command.companyId)
 
-        // Walidacja Driver i Vehicle (bez zmian)
+        require(command.stops.isNotEmpty()) { "At least one stop is required" }
+
+        val stopOrders = command.stops.map { it.stopOrder }.sorted()
+        require(stopOrders == (1..stopOrders.size).toList()) {
+            "Stop orders must be consecutive starting from 1"
+        }
+
         val driver = driverRepository.findById(command.companyId, command.driverId)
             ?: throw DriverNotFoundException(command.driverId)
 
@@ -115,96 +121,34 @@ class CreateRouteHandler(
             )
         }
 
-        // Walidacja punktów
-        require(command.points.isNotEmpty()) { "At least one point is required" }
-
-        // Grupowanie punktów po dziecku
-        val pointsByChild = command.points.groupBy { it.childId }
-
-        // Walidacja: każde dziecko musi mieć PICKUP i DROPOFF
-        pointsByChild.forEach { (childId, points) ->
-            val hasPickup = points.any { it.type == RoutePointType.PICKUP }
-            val hasDropoff = points.any { it.type == RoutePointType.DROPOFF }
-
-            require(hasPickup && hasDropoff) {
-                "Child $childId must have both PICKUP and DROPOFF points"
-            }
-
-            // Sprawdź czy są dokładnie 1 pickup i 1 dropoff
-            require(points.count { it.type == RoutePointType.PICKUP } == 1) {
-                "Child $childId must have exactly one PICKUP point"
-            }
-            require(points.count { it.type == RoutePointType.DROPOFF } == 1) {
-                "Child $childId must have exactly one DROPOFF point"
-            }
+        val childrenIds = command.stops.map { it.childId }.toSet()
+        val children = childrenIds.associateWith { childId ->
+            childRepository.findById(command.companyId, childId)
+                ?: throw ChildNotFoundException(childId)
         }
 
-        // Walidacja dzieci i przygotowanie danych
-        val childrenData = pointsByChild.map { (childIdStr, points) ->
-            val childId = ChildId.from(childIdStr)
-
-            val child = childRepository.findById(command.companyId, childId)
-                ?: throw ChildNotFoundException(childId)
-
+        children.values.forEach { child ->
             require(child.status == ChildStatus.ACTIVE) {
                 "Child ${child.id.value} must be ACTIVE to be assigned to a route"
             }
-
-            val pickupPoint = points.first { it.type == RoutePointType.PICKUP }
-            val dropoffPoint = points.first { it.type == RoutePointType.DROPOFF }
-
-            // Walidacja czasów
-            require(dropoffPoint.estimatedTime.isAfter(pickupPoint.estimatedTime)) {
-                "Dropoff time must be after pickup time for child ${childIdStr}"
-            }
-
-            // Pobierz harmonogram aby uzyskać adresy
-            val scheduleId = ScheduleId.from(pickupPoint.scheduleId)
-            val schedule = scheduleRepository.findById(
-                companyId = command.companyId,
-                id = scheduleId
-            ) ?: throw IllegalArgumentException("Schedule ${scheduleId.value} not found")
-
-            require(schedule.childId == childId) {
-                "Schedule ${scheduleId.value} does not belong to child ${childId.value}"
-            }
-
-            // Sprawdź konflikty czasowe dla dziecka
-            if (routeChildRepository.hasChildConflict(
-                    command.companyId,
-                    childId,
-                    command.date,
-                    pickupPoint.estimatedTime,
-                    dropoffPoint.estimatedTime
-                )) {
-                throw IllegalArgumentException(
-                    "Child ${childId.value} already has a route at this time on ${command.date}"
-                )
-            }
-
-            Triple(child, pickupPoint, dropoffPoint)
         }
 
-        // Walidacja pojemności pojazdu
-        val wheelchairCount = childrenData.count { (child, _, _) ->
-            child.transportNeeds.wheelchair
-        }
+        val childrenInStops = command.stops.map { children[it.childId]!! }
+        val wheelchairCount = childrenInStops.distinctBy { it.id }.count { it.transportNeeds.wheelchair }
         require(wheelchairCount <= vehicle.capacity.wheelchairSpaces) {
             "Number of children requiring wheelchair ($wheelchairCount) exceeds vehicle wheelchair capacity (${vehicle.capacity.wheelchairSpaces})"
         }
 
-        val specialSeatCount = childrenData.count { (child, _, _) ->
-            child.transportNeeds.specialSeat
-        }
+        val specialSeatCount = childrenInStops.distinctBy { it.id }.count { it.transportNeeds.specialSeat }
         require(specialSeatCount <= vehicle.capacity.childSeats) {
             "Number of children requiring special seats ($specialSeatCount) exceeds vehicle special seat capacity (${vehicle.capacity.childSeats})"
         }
 
-        require(childrenData.size <= vehicle.capacity.totalSeats) {
-            "Number of children (${childrenData.size}) exceeds vehicle capacity (${vehicle.capacity.totalSeats})"
+        val uniqueChildrenCount = childrenIds.size
+        require(uniqueChildrenCount <= vehicle.capacity.totalSeats) {
+            "Number of children ($uniqueChildrenCount) exceeds vehicle capacity (${vehicle.capacity.totalSeats})"
         }
 
-        // Utwórz trasę
         val route = Route.create(
             companyId = command.companyId,
             routeName = command.routeName,
@@ -217,27 +161,23 @@ class CreateRouteHandler(
 
         val savedRoute = routeRepository.save(route)
 
-        // Utwórz RouteChild dla każdego dziecka
-        childrenData.forEach { (child, pickupPoint, dropoffPoint) ->
-            val scheduleId = ScheduleId.from(pickupPoint.scheduleId)
-            val schedule = scheduleRepository.findById(
-                companyId = command.companyId,
-                id = scheduleId
-            )!!
-
-            val routeChild = RouteChild.create(
+        val stops = command.stops.map { stopData ->
+            val schedule = scheduleRepository.findById(principal.companyId, stopData.scheduleId)
+            RouteStop.create(
                 companyId = command.companyId,
                 routeId = savedRoute.id,
-                childId = child.id,
-                scheduleId = scheduleId,
-                pickupOrder = pickupPoint.order,
-                pickupAddress = schedule.pickupAddress,
-                dropoffAddress = schedule.dropoffAddress,
-                estimatedPickupTime = pickupPoint.estimatedTime,
-                estimatedDropoffTime = dropoffPoint.estimatedTime
+                stopOrder = stopData.stopOrder,
+                stopType = stopData.stopType,
+                childId = stopData.childId,
+                scheduleId = stopData.scheduleId,
+                estimatedTime = stopData.estimatedTime,
+                address = stopData.address
+                    .copy(latitude = if(stopData.stopType == StopType.PICKUP) schedule!!.pickupAddress.latitude else schedule!!.dropoffAddress.latitude,
+                        longitude = if(stopData.stopType == StopType.PICKUP) schedule!!.pickupAddress.longitude else schedule.dropoffAddress.longitude)
             )
-            routeChildRepository.save(routeChild)
         }
+
+        stopRepository.saveAll(stops)
 
         return CreateRouteResult(
             id = savedRoute.id,
@@ -249,7 +189,7 @@ class CreateRouteHandler(
             vehicleId = savedRoute.vehicleId,
             estimatedStartTime = savedRoute.estimatedStartTime,
             estimatedEndTime = savedRoute.estimatedEndTime,
-            childrenCount = childrenData.size
+            stopsCount = stops.size
         )
     }
 }

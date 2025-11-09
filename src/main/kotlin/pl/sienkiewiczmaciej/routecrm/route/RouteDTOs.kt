@@ -1,3 +1,4 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/RouteDTOs.kt
 package pl.sienkiewiczmaciej.routecrm.route
 
 import com.fasterxml.jackson.annotation.JsonFormat
@@ -11,16 +12,23 @@ import pl.sienkiewiczmaciej.routecrm.child.TransportNeedsResponse
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.child.domain.DisabilityType
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.route.addstop.AddRouteStopCommand
 import pl.sienkiewiczmaciej.routecrm.route.availablechildren.AvailableChildItem
+import pl.sienkiewiczmaciej.routecrm.route.cancelstop.CancelRouteStopCommand
+import pl.sienkiewiczmaciej.routecrm.route.cancelstop.CancelRouteStopResult
 import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteCommand
 import pl.sienkiewiczmaciej.routecrm.route.create.CreateRouteResult
-import pl.sienkiewiczmaciej.routecrm.route.create.RouteChildData
-import pl.sienkiewiczmaciej.routecrm.route.domain.ChildInRouteStatus
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
+import pl.sienkiewiczmaciej.routecrm.route.create.RouteStopData
+import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.route.executestop.ExecuteRouteStopCommand
+import pl.sienkiewiczmaciej.routecrm.route.executestop.ExecuteRouteStopResult
 import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteDetail
+import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteStopDetail
 import pl.sienkiewiczmaciej.routecrm.route.list.RouteListItem
 import pl.sienkiewiczmaciej.routecrm.route.note.AddNoteResult
-import pl.sienkiewiczmaciej.routecrm.route.updatechildstatus.UpdateChildStatusResult
+import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsCommand
+import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsResult
+import pl.sienkiewiczmaciej.routecrm.route.reorderstops.StopOrderUpdate
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateStatusResult
 import pl.sienkiewiczmaciej.routecrm.schedule.ScheduleAddressRequest
 import pl.sienkiewiczmaciej.routecrm.schedule.ScheduleAddressResponse
@@ -33,78 +41,42 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.Period
 
-data class RouteChildRequest(
+data class RouteStopRequest(
+    @field:NotNull(message = "Stop order is required")
+    @field:Min(1, message = "Stop order must be at least 1")
+    val stopOrder: Int,
+
+    @field:NotNull(message = "Stop type is required")
+    val stopType: StopType,
+
     @field:NotBlank(message = "Child ID is required")
     val childId: String,
 
     @field:NotBlank(message = "Schedule ID is required")
     val scheduleId: String,
-
-    @field:NotNull(message = "Pickup order is required")
-    @field:Min(1, message = "Pickup order must be at least 1")
-    val pickupOrder: Int,
-
-    @field:Valid
-    @field:NotNull(message = "Pickup address is required")
-    val pickupAddress: ScheduleAddressRequest,
-
-    @field:Valid
-    @field:NotNull(message = "Dropoff address is required")
-    val dropoffAddress: ScheduleAddressRequest,
-
-    @field:NotNull(message = "Estimated pickup time is required")
-    @JsonFormat(pattern = "HH:mm")
-    val estimatedPickupTime: LocalTime,
-
-    @field:NotNull(message = "Estimated dropoff time is required")
-    @JsonFormat(pattern = "HH:mm")
-    val estimatedDropoffTime: LocalTime
-) {
-    fun toData() = RouteChildData(
-        childId = ChildId.from(childId),
-        scheduleId = ScheduleId.from(scheduleId),
-        pickupOrder = pickupOrder,
-        // Budujemy pełny ScheduleAddress (bez współrzędnych - zostaną skopiowane z harmonogramu)
-        pickupAddress = ScheduleAddress(
-            label = pickupAddress.label,
-            address = pickupAddress.toDomainAddress(),
-            latitude = null,  // Będą pobrane z harmonogramu
-            longitude = null
-        ),
-        dropoffAddress = ScheduleAddress(
-            label = dropoffAddress.label,
-            address = dropoffAddress.toDomainAddress(),
-            latitude = null,  // Będą pobrane z harmonogramu
-            longitude = null
-        ),
-        estimatedPickupTime = estimatedPickupTime,
-        estimatedDropoffTime = estimatedDropoffTime
-    )
-}
-
-enum class RoutePointType {
-    PICKUP,
-    DROPOFF
-}
-
-data class RoutePointRequest(
-    @field:NotBlank(message = "Child ID is required")
-    val childId: String,
-
-    @field:NotBlank(message = "Schedule ID is required")
-    val scheduleId: String,
-
-    @field:NotNull(message = "Point type is required")
-    val type: RoutePointType,
-
-    @field:NotNull(message = "Order is required")
-    @field:Min(1, message = "Order must be at least 1")
-    val order: Int,
 
     @field:NotNull(message = "Estimated time is required")
     @JsonFormat(pattern = "HH:mm")
-    val estimatedTime: LocalTime
-)
+    val estimatedTime: LocalTime,
+
+    @field:Valid
+    @field:NotNull(message = "Address is required")
+    val address: ScheduleAddressRequest
+) {
+    fun toData() = RouteStopData(
+        stopOrder = stopOrder,
+        stopType = stopType,
+        childId = ChildId.from(childId),
+        scheduleId = ScheduleId.from(scheduleId),
+        estimatedTime = estimatedTime,
+        address = ScheduleAddress(
+            label = address.label,
+            address = address.toDomainAddress(),
+            latitude = null,
+            longitude = null
+        )
+    )
+}
 
 data class CreateRouteRequest(
     @field:NotBlank(message = "Route name is required")
@@ -129,8 +101,8 @@ data class CreateRouteRequest(
     val estimatedEndTime: LocalTime,
 
     @field:Valid
-    @field:NotEmpty(message = "At least one point is required")
-    val points: List<RoutePointRequest>
+    @field:NotEmpty(message = "At least one stop is required")
+    val stops: List<RouteStopRequest>
 ) {
     fun toCommand(companyId: CompanyId) = CreateRouteCommand(
         companyId = companyId,
@@ -140,7 +112,7 @@ data class CreateRouteRequest(
         vehicleId = VehicleId.from(vehicleId),
         estimatedStartTime = estimatedStartTime,
         estimatedEndTime = estimatedEndTime,
-        points = points
+        stops = stops.map { it.toData() }
     )
 }
 
@@ -158,7 +130,7 @@ data class RouteResponse(
     val estimatedEndTime: LocalTime,
     val actualStartTime: Instant?,
     val actualEndTime: Instant?,
-    val childrenCount: Int,
+    val stopsCount: Int,
     val createdAt: Instant
 ) {
     companion object {
@@ -174,7 +146,7 @@ data class RouteResponse(
             estimatedEndTime = result.estimatedEndTime,
             actualStartTime = null,
             actualEndTime = null,
-            childrenCount = result.childrenCount,
+            stopsCount = result.stopsCount,
             createdAt = Instant.now()
         )
     }
@@ -203,7 +175,7 @@ data class RouteListResponse(
     val estimatedStartTime: LocalTime,
     @JsonFormat(pattern = "HH:mm")
     val estimatedEndTime: LocalTime,
-    val childrenCount: Int
+    val stopsCount: Int
 ) {
     companion object {
         fun from(item: RouteListItem) = RouteListResponse(
@@ -223,25 +195,29 @@ data class RouteListResponse(
             ),
             estimatedStartTime = item.estimatedStartTime,
             estimatedEndTime = item.estimatedEndTime,
-            childrenCount = item.childrenCount
+            stopsCount = item.stopsCount
         )
     }
 }
 
-data class RouteChildDetailResponse(
+data class RouteStopDetailResponse(
     val id: String,
-    val firstName: String,
-    val lastName: String,
-    val pickupOrder: Int,
-    val pickupAddress: ScheduleAddressResponse,
-    val dropoffAddress: ScheduleAddressResponse,
+    val stopOrder: Int,
+    val stopType: StopType,
+    val childId: String,
+    val childFirstName: String,
+    val childLastName: String,
+    val scheduleId: String,
     @JsonFormat(pattern = "HH:mm")
-    val estimatedPickupTime: LocalTime,
-    @JsonFormat(pattern = "HH:mm")
-    val estimatedDropoffTime: LocalTime,
-    val actualPickupTime: Instant?,
-    val actualDropoffTime: Instant?,
-    val status: ChildInRouteStatus,
+    val estimatedTime: LocalTime,
+    val address: ScheduleAddressResponse,
+    val isCancelled: Boolean,
+    val cancelledAt: Instant?,
+    val cancellationReason: String?,
+    val actualTime: Instant?,
+    val executionStatus: ExecutionStatus?,
+    val executionNotes: String?,
+    val executedByName: String?,
     val guardian: GuardianSimpleResponse
 )
 
@@ -272,7 +248,7 @@ data class RouteDetailResponse(
     val estimatedEndTime: LocalTime,
     val actualStartTime: Instant?,
     val actualEndTime: Instant?,
-    val children: List<RouteChildDetailResponse>,
+    val stops: List<RouteStopDetailResponse>,
     val notes: List<RouteNoteResponse>,
     val createdAt: Instant,
     val updatedAt: Instant
@@ -298,23 +274,28 @@ data class RouteDetailResponse(
             estimatedEndTime = detail.estimatedEndTime,
             actualStartTime = detail.actualStartTime,
             actualEndTime = detail.actualEndTime,
-            children = detail.children.map { child ->
-                RouteChildDetailResponse(
-                    id = child.childId.value,
-                    firstName = child.firstName,
-                    lastName = child.lastName,
-                    pickupOrder = child.pickupOrder,
-                    pickupAddress = ScheduleAddressResponse.from(child.pickupAddress),
-                    dropoffAddress = ScheduleAddressResponse.from(child.dropoffAddress),
-                    estimatedPickupTime = child.estimatedPickupTime,
-                    estimatedDropoffTime = child.estimatedDropoffTime,
-                    actualPickupTime = child.actualPickupTime,
-                    actualDropoffTime = child.actualDropoffTime,
-                    status = child.status,
+            stops = detail.stops.map { stop ->
+                RouteStopDetailResponse(
+                    id = stop.id.value,
+                    stopOrder = stop.stopOrder,
+                    stopType = stop.stopType,
+                    childId = stop.childId.value,
+                    childFirstName = stop.childFirstName,
+                    childLastName = stop.childLastName,
+                    scheduleId = stop.scheduleId.value,
+                    estimatedTime = stop.estimatedTime,
+                    address = ScheduleAddressResponse.from(stop.address),
+                    isCancelled = stop.isCancelled,
+                    cancelledAt = stop.cancelledAt,
+                    cancellationReason = stop.cancellationReason,
+                    actualTime = stop.actualTime,
+                    executionStatus = stop.executionStatus,
+                    executionNotes = stop.executionNotes,
+                    executedByName = stop.executedByName,
                     guardian = GuardianSimpleResponse(
-                        firstName = child.guardianFirstName,
-                        lastName = child.guardianLastName,
-                        phone = child.guardianPhone
+                        firstName = stop.guardianFirstName,
+                        lastName = stop.guardianLastName,
+                        phone = stop.guardianPhone
                     )
                 )
             },
@@ -358,32 +339,6 @@ data class UpdateRouteStatusResponse(
     }
 }
 
-data class UpdateChildStatusRequest(
-    @field:NotNull(message = "Status is required")
-    val status: ChildInRouteStatus,
-
-    val actualPickupTime: Instant?,
-    val actualDropoffTime: Instant?
-)
-
-data class UpdateChildStatusResponse(
-    val childId: String,
-    val status: ChildInRouteStatus,
-    val actualPickupTime: Instant?,
-    val actualDropoffTime: Instant?,
-    val updatedAt: Instant
-) {
-    companion object {
-        fun from(result: UpdateChildStatusResult) = UpdateChildStatusResponse(
-            childId = result.childId.value,
-            status = result.status,
-            actualPickupTime = result.actualPickupTime,
-            actualDropoffTime = result.actualDropoffTime,
-            updatedAt = Instant.now()
-        )
-    }
-}
-
 data class AddRouteNoteRequest(
     @field:NotBlank(message = "Note content is required")
     @field:Size(max = 5000)
@@ -404,6 +359,149 @@ data class AddRouteNoteResponse(
             author = result.authorName,
             content = result.content,
             createdAt = result.createdAt
+        )
+    }
+}
+
+data class AddRouteStopRequest(
+    @field:NotNull(message = "Stop order is required")
+    @field:Min(1, message = "Stop order must be at least 1")
+    val stopOrder: Int,
+
+    @field:NotNull(message = "Stop type is required")
+    val stopType: StopType,
+
+    @field:NotBlank(message = "Child ID is required")
+    val childId: String,
+
+    @field:NotBlank(message = "Schedule ID is required")
+    val scheduleId: String,
+
+    @field:NotNull(message = "Estimated time is required")
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedTime: LocalTime,
+
+    @field:Valid
+    @field:NotNull(message = "Address is required")
+    val address: ScheduleAddressRequest
+) {
+    fun toCommand(companyId: CompanyId, routeId: RouteId) = AddRouteStopCommand(
+        companyId = companyId,
+        routeId = routeId,
+        stopOrder = stopOrder,
+        stopType = stopType,
+        childId = ChildId.from(childId),
+        scheduleId = ScheduleId.from(scheduleId),
+        estimatedTime = estimatedTime,
+        address = ScheduleAddress(
+            label = address.label,
+            address = address.toDomainAddress(),
+            latitude = null,
+            longitude = null
+        )
+    )
+}
+
+data class ReorderStopsRequest(
+    @field:NotEmpty(message = "At least one stop order is required")
+    val stopOrders: List<StopOrderRequest>
+) {
+    fun toCommand(companyId: CompanyId, routeId: RouteId) = ReorderRouteStopsCommand(
+        companyId = companyId,
+        routeId = routeId,
+        stopOrders = stopOrders.map {
+            StopOrderUpdate(
+                stopId = RouteStopId.from(it.stopId),
+                newOrder = it.newOrder
+            )
+        }
+    )
+}
+
+data class StopOrderRequest(
+    @field:NotBlank(message = "Stop ID is required")
+    val stopId: String,
+
+    @field:NotNull(message = "New order is required")
+    @field:Min(1, message = "Order must be at least 1")
+    val newOrder: Int
+)
+
+data class ReorderStopsResponse(
+    val routeId: String,
+    val updatedStopsCount: Int
+) {
+    companion object {
+        fun from(result: ReorderRouteStopsResult) = ReorderStopsResponse(
+            routeId = result.routeId.value,
+            updatedStopsCount = result.updatedStopsCount
+        )
+    }
+}
+
+data class CancelRouteStopRequest(
+    @field:NotBlank(message = "Cancellation reason is required")
+    @field:Size(max = 5000)
+    val reason: String
+) {
+    fun toCommand(companyId: CompanyId, routeId: RouteId, stopId: RouteStopId) =
+        CancelRouteStopCommand(
+            companyId = companyId,
+            routeId = routeId,
+            stopId = stopId,
+            reason = reason
+        )
+}
+
+data class CancelRouteStopResponse(
+    val id: String,
+    val isCancelled: Boolean,
+    val cancelledAt: Instant?,
+    val cancellationReason: String?
+) {
+    companion object {
+        fun from(result: CancelRouteStopResult) = CancelRouteStopResponse(
+            id = result.id.value,
+            isCancelled = result.isCancelled,
+            cancelledAt = result.cancelledAt,
+            cancellationReason = result.cancellationReason
+        )
+    }
+}
+
+data class ExecuteRouteStopRequest(
+    @field:NotNull(message = "Actual time is required")
+    val actualTime: Instant,
+
+    @field:NotNull(message = "Execution status is required")
+    val status: ExecutionStatus,
+
+    @field:Size(max = 5000)
+    val notes: String?
+) {
+    fun toCommand(companyId: CompanyId, routeId: RouteId, stopId: RouteStopId) =
+        ExecuteRouteStopCommand(
+            companyId = companyId,
+            routeId = routeId,
+            stopId = stopId,
+            actualTime = actualTime,
+            status = status,
+            notes = notes
+        )
+}
+
+data class ExecuteRouteStopResponse(
+    val id: String,
+    val actualTime: Instant,
+    val executionStatus: ExecutionStatus,
+    val executedByName: String
+) {
+    companion object {
+        fun from(result: ExecuteRouteStopResult) = ExecuteRouteStopResponse(
+            id = result.id.value,
+            actualTime = result.actualTime,
+            executionStatus = result.executionStatus,
+            executedByName = result.executedByName
         )
     }
 }

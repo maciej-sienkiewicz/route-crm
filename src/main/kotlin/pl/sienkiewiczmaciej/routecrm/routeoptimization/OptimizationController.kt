@@ -7,7 +7,6 @@ import jakarta.validation.constraints.NotNull
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import pl.sienkiewiczmaciej.routecrm.routeoptimization.apply.ApplyOptimizationHandler
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.domain.OptimizationStatus
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.domain.OptimizationTaskId
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.getresult.GetOptimizationResultHandler
@@ -15,7 +14,6 @@ import pl.sienkiewiczmaciej.routecrm.routeoptimization.getresult.GetOptimization
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.optimize.OptimizeRoutesCommand
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.optimize.OptimizeRoutesHandler
 import pl.sienkiewiczmaciej.routecrm.routeoptimization.optimize.RouteType
-import pl.sienkiewiczmaciej.routecrm.routeoptimization.apply.ApplyOptimizationCommand
 import pl.sienkiewiczmaciej.routecrm.shared.api.BaseController
 import java.time.LocalDate
 import java.time.LocalTime
@@ -91,7 +89,6 @@ data class ApplyOptimizationResponse(
 class OptimizationController(
     private val optimizeHandler: OptimizeRoutesHandler,
     private val getResultHandler: GetOptimizationResultHandler,
-    private val applyOptimizationHandler: ApplyOptimizationHandler
 ) : BaseController() {
 
     @PostMapping("/optimize")
@@ -160,31 +157,6 @@ class OptimizationController(
                 )
             },
             unassignedChildren = result.unassignedChildren.map { it.value }
-        )
-    }
-
-    @PostMapping("/tasks/{taskId}/apply")
-    suspend fun applyOptimization(@PathVariable taskId: String): ApplyOptimizationResponse {
-        val principal = getPrincipal()
-        val command = ApplyOptimizationCommand(
-            companyId = principal.companyId,
-            taskId = OptimizationTaskId.from(taskId)
-        )
-
-        val result = applyOptimizationHandler.handle(principal, command)
-
-        val message = when {
-            result.failedCount == 0 -> "All ${result.successCount} routes created successfully"
-            result.successCount == 0 -> "Failed to create any routes"
-            else -> "${result.successCount} routes created successfully, ${result.failedCount} failed"
-        }
-
-        return ApplyOptimizationResponse(
-            createdRoutes = result.createdRoutes.map { it.value },
-            successCount = result.successCount,
-            failedCount = result.failedCount,
-            errors = result.errors,
-            message = message
         )
     }
 }

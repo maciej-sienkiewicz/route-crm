@@ -1,3 +1,4 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/getbyid/GetRouteHandler.kt
 package pl.sienkiewiczmaciej.routecrm.route.getbyid
 
 import kotlinx.coroutines.Dispatchers
@@ -31,19 +32,23 @@ data class GetRouteQuery(
     val id: RouteId
 )
 
-data class RouteChildDetail(
+data class RouteStopDetail(
+    val id: RouteStopId,
+    val stopOrder: Int,
+    val stopType: StopType,
     val childId: ChildId,
+    val childFirstName: String,
+    val childLastName: String,
     val scheduleId: ScheduleId,
-    val firstName: String,
-    val lastName: String,
-    val pickupOrder: Int,
-    val pickupAddress: ScheduleAddress,
-    val dropoffAddress: ScheduleAddress,
-    val estimatedPickupTime: LocalTime,
-    val estimatedDropoffTime: LocalTime,
-    val actualPickupTime: Instant?,
-    val actualDropoffTime: Instant?,
-    val status: ChildInRouteStatus,
+    val estimatedTime: LocalTime,
+    val address: ScheduleAddress,
+    val isCancelled: Boolean,
+    val cancelledAt: Instant?,
+    val cancellationReason: String?,
+    val actualTime: Instant?,
+    val executionStatus: ExecutionStatus?,
+    val executionNotes: String?,
+    val executedByName: String?,
     val guardianFirstName: String,
     val guardianLastName: String,
     val guardianPhone: String
@@ -65,7 +70,7 @@ data class RouteDetail(
     val estimatedEndTime: LocalTime,
     val actualStartTime: Instant?,
     val actualEndTime: Instant?,
-    val children: List<RouteChildDetail>,
+    val stops: List<RouteStopDetail>,
     val notes: List<RouteNote>
 )
 
@@ -74,8 +79,8 @@ class RouteNotFoundException(id: RouteId) : NotFoundException("Route ${id.value}
 @Component
 class GetRouteHandler(
     private val routeRepository: RouteRepository,
-    private val routeChildRepository: RouteChildRepository,
-    private val routeNoteRepository: RouteNoteRepository,
+    private val stopRepository: RouteStopRepository,
+    private val noteRepository: RouteNoteRepository,
     private val driverRepository: DriverJpaRepository,
     private val vehicleRepository: VehicleJpaRepository,
     private val childRepository: ChildJpaRepository,
@@ -91,7 +96,6 @@ class GetRouteHandler(
         val route = routeRepository.findById(query.companyId, query.id)
             ?: throw RouteNotFoundException(query.id)
 
-        // Dla kierowcy - sprawdź czy ma dostęp do tej trasy
         if (principal.role == UserRole.DRIVER && principal.driverId != null) {
             require(route.driverId == DriverId.from(principal.driverId)) {
                 "Driver can only access their own routes"
@@ -107,12 +111,12 @@ class GetRouteHandler(
                 vehicleRepository.findByIdAndCompanyId(route.vehicleId.value, query.companyId.value)
             }
 
-            val routeChildrenDeferred = async {
-                routeChildRepository.findByRoute(query.companyId, query.id)
+            val stopsDeferred = async {
+                stopRepository.findByRoute(query.companyId, query.id, includeCancelled = true)
             }
 
             val notesDeferred = async {
-                routeNoteRepository.findByRoute(query.companyId, query.id)
+                noteRepository.findByRoute(query.companyId, query.id)
             }
 
             val driver = driverDeferred.await()
@@ -121,25 +125,23 @@ class GetRouteHandler(
             val vehicle = vehicleDeferred.await()
                 ?: throw NotFoundException("Vehicle ${route.vehicleId.value} not found")
 
-            val routeChildren = routeChildrenDeferred.await()
+            val stops = stopsDeferred.await()
             val notes = notesDeferred.await()
 
-            // Pobierz szczegóły dzieci i ich opiekunów
-            val childrenDetails = routeChildren.map { routeChild ->
+            val stopsDetails = stops.map { stop ->
                 async {
                     val child = childRepository.findByIdAndCompanyId(
-                        routeChild.childId.value,
+                        stop.childId.value,
                         query.companyId.value
-                    ) ?: throw NotFoundException("Child ${routeChild.childId.value} not found")
+                    ) ?: throw NotFoundException("Child ${stop.childId.value} not found")
 
-                    // Pobierz głównego opiekuna dziecka
                     val assignments = guardianAssignmentRepository.findByCompanyIdAndChildId(
                         query.companyId.value,
-                        routeChild.childId.value
+                        stop.childId.value
                     )
-                    
+
                     val primaryAssignment = assignments.find { it.isPrimary } ?: assignments.firstOrNull()
-                    
+
                     val (guardianFirstName, guardianLastName, guardianPhone) = if (primaryAssignment != null) {
                         val guardian = guardianRepository.findByIdAndCompanyId(
                             primaryAssignment.guardianId,
@@ -154,19 +156,23 @@ class GetRouteHandler(
                         Triple("", "", "")
                     }
 
-                    RouteChildDetail(
-                        childId = routeChild.childId,
-                        scheduleId = routeChild.scheduleId,
-                        firstName = child.firstName,
-                        lastName = child.lastName,
-                        pickupOrder = routeChild.pickupOrder,
-                        pickupAddress = routeChild.pickupAddress,
-                        dropoffAddress = routeChild.dropoffAddress,
-                        estimatedPickupTime = routeChild.estimatedPickupTime,
-                        estimatedDropoffTime = routeChild.estimatedDropoffTime,
-                        actualPickupTime = routeChild.actualPickupTime,
-                        actualDropoffTime = routeChild.actualDropoffTime,
-                        status = routeChild.status,
+                    RouteStopDetail(
+                        id = stop.id,
+                        stopOrder = stop.stopOrder,
+                        stopType = stop.stopType,
+                        childId = stop.childId,
+                        childFirstName = child.firstName,
+                        childLastName = child.lastName,
+                        scheduleId = stop.scheduleId,
+                        estimatedTime = stop.estimatedTime,
+                        address = stop.address,
+                        isCancelled = stop.isCancelled,
+                        cancelledAt = stop.cancelledAt,
+                        cancellationReason = stop.cancellationReason,
+                        actualTime = stop.actualTime,
+                        executionStatus = stop.executionStatus,
+                        executionNotes = stop.executionNotes,
+                        executedByName = stop.executedByName,
                         guardianFirstName = guardianFirstName,
                         guardianLastName = guardianLastName,
                         guardianPhone = guardianPhone
@@ -174,18 +180,17 @@ class GetRouteHandler(
                 }
             }.awaitAll()
 
-            // Dla opiekuna - sprawdź czy ma dostęp do dzieci na tej trasie
             if (principal.role == UserRole.GUARDIAN && principal.guardianId != null) {
                 val guardianAssignments = guardianAssignmentRepository.findByCompanyIdAndGuardianId(
                     query.companyId.value,
                     principal.guardianId
                 )
                 val guardianChildIds = guardianAssignments.map { it.childId }.toSet()
-                
-                val routeHasGuardianChild = childrenDetails.any { 
-                    it.childId.value in guardianChildIds 
+
+                val routeHasGuardianChild = stopsDetails.any {
+                    it.childId.value in guardianChildIds
                 }
-                
+
                 require(routeHasGuardianChild) {
                     "Guardian can only access routes with their children"
                 }
@@ -207,7 +212,7 @@ class GetRouteHandler(
                 estimatedEndTime = route.estimatedEndTime,
                 actualStartTime = route.actualStartTime,
                 actualEndTime = route.actualEndTime,
-                children = childrenDetails.sortedBy { it.pickupOrder },
+                stops = stopsDetails.sortedBy { it.stopOrder },
                 notes = notes
             )
         }

@@ -1,8 +1,10 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteJpaRepositories.kt
 package pl.sienkiewiczmaciej.routecrm.route.infrastructure
 
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
@@ -29,12 +31,6 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         pageable: Pageable
     ): Page<RouteEntity>
 
-    fun findByCompanyIdAndDriverId(
-        companyId: String,
-        driverId: String,
-        pageable: Pageable
-    ): Page<RouteEntity>
-
     @Query("""
         SELECT r FROM RouteEntity r
         WHERE r.companyId = :companyId
@@ -55,6 +51,7 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         AND r.driverId = :driverId
         AND r.date = :date
         AND r.status IN ('PLANNED', 'IN_PROGRESS')
+        AND (:excludeRouteId IS NULL OR r.id != :excludeRouteId)
         AND (
             (r.estimatedStartTime < :endTime AND r.estimatedEndTime > :startTime)
         )
@@ -64,7 +61,8 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         @Param("driverId") driverId: String,
         @Param("date") date: LocalDate,
         @Param("startTime") startTime: LocalTime,
-        @Param("endTime") endTime: LocalTime
+        @Param("endTime") endTime: LocalTime,
+        @Param("excludeRouteId") excludeRouteId: String?
     ): Boolean
 
     @Query("""
@@ -74,6 +72,7 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         AND r.vehicleId = :vehicleId
         AND r.date = :date
         AND r.status IN ('PLANNED', 'IN_PROGRESS')
+        AND (:excludeRouteId IS NULL OR r.id != :excludeRouteId)
         AND (
             (r.estimatedStartTime < :endTime AND r.estimatedEndTime > :startTime)
         )
@@ -83,44 +82,36 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         @Param("vehicleId") vehicleId: String,
         @Param("date") date: LocalDate,
         @Param("startTime") startTime: LocalTime,
-        @Param("endTime") endTime: LocalTime
+        @Param("endTime") endTime: LocalTime,
+        @Param("excludeRouteId") excludeRouteId: String?
     ): Boolean
 }
 
-interface RouteChildJpaRepository : JpaRepository<RouteChildEntity, String> {
-    fun findByIdAndCompanyId(id: String, companyId: String): RouteChildEntity?
+interface RouteStopJpaRepository : JpaRepository<RouteStopEntity, String> {
+    fun findByIdAndCompanyId(id: String, companyId: String): RouteStopEntity?
 
-    fun findByCompanyIdAndRouteId(companyId: String, routeId: String): List<RouteChildEntity>
-
-    fun findByCompanyIdAndRouteIdAndChildId(
+    fun findByCompanyIdAndRouteIdOrderByStopOrder(
         companyId: String,
-        routeId: String,
-        childId: String
-    ): RouteChildEntity?
+        routeId: String
+    ): List<RouteStopEntity>
+
+    @Query("""
+        SELECT s FROM RouteStopEntity s
+        WHERE s.companyId = :companyId
+        AND s.routeId = :routeId
+        AND (:includeCancelled = true OR s.isCancelled = false)
+        ORDER BY s.stopOrder
+    """)
+    fun findByCompanyIdAndRouteId(
+        @Param("companyId") companyId: String,
+        @Param("routeId") routeId: String,
+        @Param("includeCancelled") includeCancelled: Boolean
+    ): List<RouteStopEntity>
 
     fun countByCompanyIdAndRouteId(companyId: String, routeId: String): Int
 
+    @Modifying
     fun deleteByCompanyIdAndRouteId(companyId: String, routeId: String)
-
-    @Query("""
-        SELECT CASE WHEN COUNT(rc) > 0 THEN true ELSE false END
-        FROM RouteChildEntity rc
-        JOIN RouteEntity r ON rc.routeId = r.id
-        WHERE rc.companyId = :companyId
-        AND rc.childId = :childId
-        AND r.date = :date
-        AND r.status IN ('PLANNED', 'IN_PROGRESS')
-        AND (
-            (rc.estimatedPickupTime < :dropoffTime AND rc.estimatedDropoffTime > :pickupTime)
-        )
-    """)
-    fun existsChildConflict(
-        @Param("companyId") companyId: String,
-        @Param("childId") childId: String,
-        @Param("date") date: LocalDate,
-        @Param("pickupTime") pickupTime: LocalTime,
-        @Param("dropoffTime") dropoffTime: LocalTime
-    ): Boolean
 }
 
 interface RouteNoteJpaRepository : JpaRepository<RouteNoteEntity, String> {
@@ -129,5 +120,6 @@ interface RouteNoteJpaRepository : JpaRepository<RouteNoteEntity, String> {
         routeId: String
     ): List<RouteNoteEntity>
 
+    @Modifying
     fun deleteByCompanyIdAndRouteId(companyId: String, routeId: String)
 }

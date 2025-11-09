@@ -1,8 +1,8 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/domain/RouteRepository.kt
 package pl.sienkiewiczmaciej.routecrm.route.domain
 
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
-import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
@@ -26,43 +26,36 @@ interface RouteRepository {
         pageable: Pageable
     ): Page<Route>
     suspend fun delete(companyId: CompanyId, id: RouteId)
-
     suspend fun hasDriverConflict(
         companyId: CompanyId,
         driverId: DriverId,
         date: LocalDate,
         startTime: LocalTime,
-        endTime: LocalTime
+        endTime: LocalTime,
+        excludeRouteId: RouteId? = null
     ): Boolean
-
     suspend fun hasVehicleConflict(
         companyId: CompanyId,
         vehicleId: VehicleId,
         date: LocalDate,
         startTime: LocalTime,
-        endTime: LocalTime
+        endTime: LocalTime,
+        excludeRouteId: RouteId? = null
     ): Boolean
 }
 
-interface RouteChildRepository {
-    suspend fun save(routeChild: RouteChild): RouteChild
-    suspend fun findById(companyId: CompanyId, id: RouteChildId): RouteChild?
-    suspend fun findByRoute(companyId: CompanyId, routeId: RouteId): List<RouteChild>
-    suspend fun findByRouteAndChild(
+interface RouteStopRepository {
+    suspend fun save(stop: RouteStop): RouteStop
+    suspend fun saveAll(stops: List<RouteStop>): List<RouteStop>
+    suspend fun findById(companyId: CompanyId, id: RouteStopId): RouteStop?
+    suspend fun findByRoute(
         companyId: CompanyId,
         routeId: RouteId,
-        childId: ChildId
-    ): RouteChild?
-    suspend fun countByRoute(companyId: CompanyId, routeId: RouteId): Int
+        includeCancelled: Boolean = false
+    ): List<RouteStop>
+    suspend fun delete(companyId: CompanyId, id: RouteStopId)
     suspend fun deleteByRoute(companyId: CompanyId, routeId: RouteId)
-
-    suspend fun hasChildConflict(
-        companyId: CompanyId,
-        childId: ChildId,
-        date: LocalDate,
-        pickupTime: LocalTime,
-        dropoffTime: LocalTime
-    ): Boolean
+    suspend fun countByRoute(companyId: CompanyId, routeId: RouteId): Int
 }
 
 interface RouteNoteRepository {

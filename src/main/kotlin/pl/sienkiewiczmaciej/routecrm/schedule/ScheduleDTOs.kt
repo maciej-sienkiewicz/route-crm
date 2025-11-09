@@ -1,6 +1,7 @@
 package pl.sienkiewiczmaciej.routecrm.schedule
 
 import com.fasterxml.jackson.annotation.JsonFormat
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
@@ -20,6 +21,7 @@ import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import java.time.Instant
 import java.time.LocalTime
 
+@JsonIgnoreProperties
 data class ScheduleAddressRequest(
     @field:Size(max = 100)
     val label: String?,
@@ -36,7 +38,13 @@ data class ScheduleAddressRequest(
     val postalCode: String,
 
     @field:Valid
-    val city: String
+    val city: String,
+
+    @field:Valid
+    val latitude: Double,
+
+    @field:Valid
+    val longitude: Double
 ) {
     fun toDomainAddress() = pl.sienkiewiczmaciej.routecrm.shared.domain.Address(
         street = street.trim(),

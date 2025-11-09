@@ -1,3 +1,4 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/domain/RouteDomainModels.kt
 package pl.sienkiewiczmaciej.routecrm.route.domain
 
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
@@ -24,13 +25,6 @@ enum class RouteStatus {
     IN_PROGRESS,
     COMPLETED,
     CANCELLED
-}
-
-enum class ChildInRouteStatus {
-    PENDING,
-    IN_VEHICLE,
-    DELIVERED,
-    ABSENT
 }
 
 data class Route(
@@ -109,96 +103,138 @@ data class Route(
         }
         return copy(status = RouteStatus.CANCELLED)
     }
+
+    fun canDeleteStops(): Boolean {
+        return status == RouteStatus.PLANNED
+    }
 }
 
-data class RouteChild(
-    val id: RouteChildId,
+@JvmInline
+value class RouteStopId(val value: String) {
+    companion object {
+        fun generate() = RouteStopId("ST-${UUID.randomUUID()}")
+        fun from(value: String) = RouteStopId(value)
+    }
+}
+
+enum class StopType {
+    PICKUP,
+    DROPOFF
+}
+
+enum class ExecutionStatus {
+    COMPLETED,
+    NO_SHOW,
+    REFUSED
+}
+
+data class RouteStop(
+    val id: RouteStopId,
     val companyId: CompanyId,
     val routeId: RouteId,
+    val stopOrder: Int,
+    val stopType: StopType,
     val childId: ChildId,
     val scheduleId: ScheduleId,
-    val pickupOrder: Int,
-    val pickupAddress: ScheduleAddress,
-    val dropoffAddress: ScheduleAddress,
-    val estimatedPickupTime: LocalTime,
-    val estimatedDropoffTime: LocalTime,
-    val actualPickupTime: Instant?,
-    val actualDropoffTime: Instant?,
-    val status: ChildInRouteStatus
+    val estimatedTime: LocalTime,
+    val address: ScheduleAddress,
+    val isCancelled: Boolean,
+    val cancelledAt: Instant?,
+    val cancellationReason: String?,
+    val actualTime: Instant?,
+    val executionStatus: ExecutionStatus?,
+    val executionNotes: String?,
+    val executedByUserId: String?,
+    val executedByName: String?
 ) {
     companion object {
         fun create(
             companyId: CompanyId,
             routeId: RouteId,
+            stopOrder: Int,
+            stopType: StopType,
             childId: ChildId,
             scheduleId: ScheduleId,
-            pickupOrder: Int,
-            pickupAddress: ScheduleAddress,
-            dropoffAddress: ScheduleAddress,
-            estimatedPickupTime: LocalTime,
-            estimatedDropoffTime: LocalTime
-        ): RouteChild {
-            require(pickupOrder > 0) { "Pickup order must be positive" }
-            require(estimatedDropoffTime.isAfter(estimatedPickupTime)) {
-                "Estimated dropoff time must be after pickup time"
-            }
+            estimatedTime: LocalTime,
+            address: ScheduleAddress
+        ): RouteStop {
+            require(stopOrder > 0) { "Stop order must be positive" }
 
-            return RouteChild(
-                id = RouteChildId.generate(),
+            return RouteStop(
+                id = RouteStopId.generate(),
                 companyId = companyId,
                 routeId = routeId,
+                stopOrder = stopOrder,
+                stopType = stopType,
                 childId = childId,
                 scheduleId = scheduleId,
-                pickupOrder = pickupOrder,
-                pickupAddress = pickupAddress,
-                dropoffAddress = dropoffAddress,
-                estimatedPickupTime = estimatedPickupTime,
-                estimatedDropoffTime = estimatedDropoffTime,
-                actualPickupTime = null,
-                actualDropoffTime = null,
-                status = ChildInRouteStatus.PENDING
+                estimatedTime = estimatedTime,
+                address = address,
+                isCancelled = false,
+                cancelledAt = null,
+                cancellationReason = null,
+                actualTime = null,
+                executionStatus = null,
+                executionNotes = null,
+                executedByUserId = null,
+                executedByName = null
             )
         }
     }
 
-    fun pickup(timestamp: Instant): RouteChild {
-        require(status == ChildInRouteStatus.PENDING) {
-            "Child must be in PENDING status to pickup"
-        }
+    fun cancel(reason: String): RouteStop {
+        require(!isCancelled) { "Stop already cancelled" }
+        require(!isExecuted()) { "Cannot cancel executed stop" }
         return copy(
-            status = ChildInRouteStatus.IN_VEHICLE,
-            actualPickupTime = timestamp
+            isCancelled = true,
+            cancelledAt = Instant.now(),
+            cancellationReason = reason
         )
     }
 
-    fun deliver(timestamp: Instant): RouteChild {
-        require(status == ChildInRouteStatus.IN_VEHICLE) {
-            "Child must be in IN_VEHICLE status to deliver"
-        }
-        require(actualPickupTime != null) { "Child must have been picked up" }
-        require(timestamp.isAfter(actualPickupTime)) {
-            "Delivery time must be after pickup time"
-        }
+    fun updateOrder(newOrder: Int): RouteStop {
+        require(newOrder > 0) { "Stop order must be positive" }
+        require(!isCancelled) { "Cannot reorder cancelled stop" }
+        require(!isExecuted()) { "Cannot reorder executed stop" }
+        return copy(stopOrder = newOrder)
+    }
+
+    fun updateDetails(estimatedTime: LocalTime, address: ScheduleAddress): RouteStop {
+        require(!isCancelled) { "Cannot update cancelled stop" }
+        require(!isExecuted()) { "Cannot update executed stop" }
         return copy(
-            status = ChildInRouteStatus.DELIVERED,
-            actualDropoffTime = timestamp
+            estimatedTime = estimatedTime,
+            address = address
         )
     }
 
-    fun markAbsent(): RouteChild {
-        require(status == ChildInRouteStatus.PENDING) {
-            "Only PENDING children can be marked absent"
+    fun execute(
+        actualTime: Instant,
+        status: ExecutionStatus,
+        executedByUserId: String,
+        executedByName: String,
+        notes: String?
+    ): RouteStop {
+        require(!isCancelled) { "Cannot execute cancelled stop" }
+        require(!isExecuted()) { "Stop already executed" }
+        require(notes == null || notes.length <= 5000) {
+            "Execution notes cannot exceed 5000 characters"
         }
-        return copy(status = ChildInRouteStatus.ABSENT)
-    }
-}
 
-@JvmInline
-value class RouteChildId(val value: String) {
-    companion object {
-        fun generate() = RouteChildId("RC-${UUID.randomUUID()}")
-        fun from(value: String) = RouteChildId(value)
+        return copy(
+            actualTime = actualTime,
+            executionStatus = status,
+            executionNotes = notes?.trim(),
+            executedByUserId = executedByUserId,
+            executedByName = executedByName
+        )
     }
+
+    fun isExecuted(): Boolean = actualTime != null
+
+    fun canBeDeleted(): Boolean = !isExecuted()
+
+    fun canBeModified(): Boolean = !isExecuted() && !isCancelled
 }
 
 @JvmInline

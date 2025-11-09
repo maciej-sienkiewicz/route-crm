@@ -1,3 +1,4 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/list/ListRoutesHandler.kt
 package pl.sienkiewiczmaciej.routecrm.route.list
 
 import kotlinx.coroutines.Dispatchers
@@ -11,10 +12,10 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.driver.infrastructure.DriverJpaRepository
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteChildRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
@@ -45,13 +46,13 @@ data class RouteListItem(
     val vehicleModel: String,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
-    val childrenCount: Int
+    val stopsCount: Int
 )
 
 @Component
 class ListRoutesHandler(
     private val routeRepository: RouteRepository,
-    private val routeChildRepository: RouteChildRepository,
+    private val stopRepository: RouteStopRepository,
     private val driverRepository: DriverJpaRepository,
     private val vehicleRepository: VehicleJpaRepository,
     private val authService: AuthorizationService
@@ -91,7 +92,7 @@ class ListRoutesHandler(
                         query.companyId.value
                     )
 
-                    val childrenCount = routeChildRepository.countByRoute(
+                    val stopsCount = stopRepository.countByRoute(
                         query.companyId,
                         route.id
                     )
@@ -109,7 +110,7 @@ class ListRoutesHandler(
                         vehicleModel = vehicle?.model ?: "",
                         estimatedStartTime = route.estimatedStartTime,
                         estimatedEndTime = route.estimatedEndTime,
-                        childrenCount = childrenCount
+                        stopsCount = stopsCount
                     )
                 }
             }.awaitAll()

@@ -1,3 +1,4 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteEntities.kt
 package pl.sienkiewiczmaciej.routecrm.route.infrastructure
 
 import jakarta.persistence.*
@@ -99,21 +100,21 @@ class RouteEntity(
 
 @Entity
 @Table(
-    name = "route_children",
+    name = "route_stops",
     indexes = [
-        Index(name = "idx_route_children_company", columnList = "company_id"),
-        Index(name = "idx_route_children_route", columnList = "route_id"),
-        Index(name = "idx_route_children_child", columnList = "company_id, child_id"),
-        Index(name = "idx_route_children_status", columnList = "route_id, status")
+        Index(name = "idx_route_stops_company", columnList = "company_id"),
+        Index(name = "idx_route_stops_route", columnList = "company_id, route_id"),
+        Index(name = "idx_route_stops_route_order", columnList = "route_id, stop_order"),
+        Index(name = "idx_route_stops_child", columnList = "company_id, child_id")
     ],
     uniqueConstraints = [
         UniqueConstraint(
-            name = "uq_route_child",
-            columnNames = ["route_id", "child_id"]
+            name = "uq_route_stop_order",
+            columnNames = ["route_id", "stop_order"]
         )
     ]
 )
-class RouteChildEntity(
+data class RouteStopEntity(
     @Id
     @Column(length = 50)
     val id: String,
@@ -124,78 +125,70 @@ class RouteChildEntity(
     @Column(name = "route_id", nullable = false, length = 50)
     val routeId: String,
 
+    @Column(name = "stop_order", nullable = false)
+    val stopOrder: Int,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "stop_type", nullable = false, length = 20)
+    val stopType: StopType,
+
     @Column(name = "child_id", nullable = false, length = 50)
     val childId: String,
 
     @Column(name = "schedule_id", nullable = false, length = 50)
     val scheduleId: String,
 
-    @Column(name = "pickup_order", nullable = false)
-    val pickupOrder: Int,
+    @Column(name = "estimated_time", nullable = false)
+    val estimatedTime: LocalTime,
 
-    @Column(name = "pickup_address_label", length = 100)
-    val pickupAddressLabel: String?,
+    @Column(name = "address_label", length = 100)
+    val addressLabel: String?,
 
-    @Column(name = "pickup_address_street", nullable = false, length = 255)
-    val pickupAddressStreet: String,
+    @Column(name = "address_street", nullable = false, length = 255)
+    val addressStreet: String,
 
-    @Column(name = "pickup_address_house_number", nullable = false, length = 20)
-    val pickupAddressHouseNumber: String,
+    @Column(name = "address_house_number", nullable = false, length = 20)
+    val addressHouseNumber: String,
 
-    @Column(name = "pickup_address_apartment_number", length = 20)
-    val pickupAddressApartmentNumber: String?,
+    @Column(name = "address_apartment_number", length = 20)
+    val addressApartmentNumber: String?,
 
-    @Column(name = "pickup_address_postal_code", nullable = false, length = 10)
-    val pickupAddressPostalCode: String,
+    @Column(name = "address_postal_code", nullable = false, length = 10)
+    val addressPostalCode: String,
 
-    @Column(name = "pickup_address_city", nullable = false, length = 100)
-    val pickupAddressCity: String,
+    @Column(name = "address_city", nullable = false, length = 100)
+    val addressCity: String,
 
-    @Column(name = "pickup_latitude")
-    val pickupLatitude: Double?,
+    @Column(name = "latitude")
+    val latitude: Double?,
 
-    @Column(name = "pickup_longitude")
-    val pickupLongitude: Double?,
+    @Column(name = "longitude")
+    val longitude: Double?,
 
-    @Column(name = "dropoff_address_label", length = 100)
-    val dropoffAddressLabel: String?,
+    @Column(name = "is_cancelled", nullable = false)
+    val isCancelled: Boolean = false,
 
-    @Column(name = "dropoff_address_street", nullable = false, length = 255)
-    val dropoffAddressStreet: String,
+    @Column(name = "cancelled_at")
+    val cancelledAt: Instant?,
 
-    @Column(name = "dropoff_address_house_number", nullable = false, length = 20)
-    val dropoffAddressHouseNumber: String,
+    @Column(name = "cancellation_reason", columnDefinition = "text")
+    val cancellationReason: String?,
 
-    @Column(name = "dropoff_address_apartment_number", length = 20)
-    val dropoffAddressApartmentNumber: String?,
-
-    @Column(name = "dropoff_address_postal_code", nullable = false, length = 10)
-    val dropoffAddressPostalCode: String,
-
-    @Column(name = "dropoff_address_city", nullable = false, length = 100)
-    val dropoffAddressCity: String,
-
-    @Column(name = "dropoff_latitude")
-    val dropoffLatitude: Double?,
-
-    @Column(name = "dropoff_longitude")
-    val dropoffLongitude: Double?,
-
-    @Column(name = "estimated_pickup_time", nullable = false)
-    val estimatedPickupTime: LocalTime,
-
-    @Column(name = "estimated_dropoff_time", nullable = false)
-    val estimatedDropoffTime: LocalTime,
-
-    @Column(name = "actual_pickup_time")
-    val actualPickupTime: Instant?,
-
-    @Column(name = "actual_dropoff_time")
-    val actualDropoffTime: Instant?,
+    @Column(name = "actual_time")
+    val actualTime: Instant?,
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    val status: ChildInRouteStatus,
+    @Column(name = "execution_status", length = 20)
+    val executionStatus: ExecutionStatus?,
+
+    @Column(name = "execution_notes", columnDefinition = "text")
+    val executionNotes: String?,
+
+    @Column(name = "executed_by_user_id", length = 50)
+    val executedByUserId: String?,
+
+    @Column(name = "executed_by_name", length = 255)
+    val executedByName: String?,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
@@ -203,73 +196,63 @@ class RouteChildEntity(
     @Column(name = "updated_at", nullable = false)
     val updatedAt: Instant = Instant.now()
 ) {
-    fun toDomain() = RouteChild(
-        id = RouteChildId(id),
+    fun toDomain() = RouteStop(
+        id = RouteStopId(id),
         companyId = CompanyId(companyId),
         routeId = RouteId(routeId),
+        stopOrder = stopOrder,
+        stopType = stopType,
         childId = ChildId(childId),
         scheduleId = ScheduleId(scheduleId),
-        pickupOrder = pickupOrder,
-        pickupAddress = ScheduleAddress(
-            label = pickupAddressLabel,
+        estimatedTime = estimatedTime,
+        address = ScheduleAddress(
+            label = addressLabel,
             address = Address(
-                street = pickupAddressStreet,
-                houseNumber = pickupAddressHouseNumber,
-                apartmentNumber = pickupAddressApartmentNumber,
-                postalCode = pickupAddressPostalCode,
-                city = pickupAddressCity
+                street = addressStreet,
+                houseNumber = addressHouseNumber,
+                apartmentNumber = addressApartmentNumber,
+                postalCode = addressPostalCode,
+                city = addressCity
             ),
-            latitude = pickupLatitude,
-            longitude = pickupLongitude
+            latitude = latitude,
+            longitude = longitude
         ),
-        dropoffAddress = ScheduleAddress(
-            label = dropoffAddressLabel,
-            address = Address(
-                street = dropoffAddressStreet,
-                houseNumber = dropoffAddressHouseNumber,
-                apartmentNumber = dropoffAddressApartmentNumber,
-                postalCode = dropoffAddressPostalCode,
-                city = dropoffAddressCity
-            ),
-            latitude = dropoffLatitude,
-            longitude = dropoffLongitude
-        ),
-        estimatedPickupTime = estimatedPickupTime,
-        estimatedDropoffTime = estimatedDropoffTime,
-        actualPickupTime = actualPickupTime,
-        actualDropoffTime = actualDropoffTime,
-        status = status
+        isCancelled = isCancelled,
+        cancelledAt = cancelledAt,
+        cancellationReason = cancellationReason,
+        actualTime = actualTime,
+        executionStatus = executionStatus,
+        executionNotes = executionNotes,
+        executedByUserId = executedByUserId,
+        executedByName = executedByName
     )
 
     companion object {
-        fun fromDomain(routeChild: RouteChild) = RouteChildEntity(
-            id = routeChild.id.value,
-            companyId = routeChild.companyId.value,
-            routeId = routeChild.routeId.value,
-            childId = routeChild.childId.value,
-            scheduleId = routeChild.scheduleId.value,
-            pickupOrder = routeChild.pickupOrder,
-            pickupAddressLabel = routeChild.pickupAddress.label,
-            pickupAddressStreet = routeChild.pickupAddress.address.street,
-            pickupAddressHouseNumber = routeChild.pickupAddress.address.houseNumber,
-            pickupAddressApartmentNumber = routeChild.pickupAddress.address.apartmentNumber,
-            pickupAddressPostalCode = routeChild.pickupAddress.address.postalCode,
-            pickupAddressCity = routeChild.pickupAddress.address.city,
-            pickupLatitude = routeChild.pickupAddress.latitude,
-            pickupLongitude = routeChild.pickupAddress.longitude,
-            dropoffAddressLabel = routeChild.dropoffAddress.label,
-            dropoffAddressStreet = routeChild.dropoffAddress.address.street,
-            dropoffAddressHouseNumber = routeChild.dropoffAddress.address.houseNumber,
-            dropoffAddressApartmentNumber = routeChild.dropoffAddress.address.apartmentNumber,
-            dropoffAddressPostalCode = routeChild.dropoffAddress.address.postalCode,
-            dropoffAddressCity = routeChild.dropoffAddress.address.city,
-            dropoffLatitude = routeChild.dropoffAddress.latitude,
-            dropoffLongitude = routeChild.dropoffAddress.longitude,
-            estimatedPickupTime = routeChild.estimatedPickupTime,
-            estimatedDropoffTime = routeChild.estimatedDropoffTime,
-            actualPickupTime = routeChild.actualPickupTime,
-            actualDropoffTime = routeChild.actualDropoffTime,
-            status = routeChild.status
+        fun fromDomain(stop: RouteStop) = RouteStopEntity(
+            id = stop.id.value,
+            companyId = stop.companyId.value,
+            routeId = stop.routeId.value,
+            stopOrder = stop.stopOrder,
+            stopType = stop.stopType,
+            childId = stop.childId.value,
+            scheduleId = stop.scheduleId.value,
+            estimatedTime = stop.estimatedTime,
+            addressLabel = stop.address.label,
+            addressStreet = stop.address.address.street,
+            addressHouseNumber = stop.address.address.houseNumber,
+            addressApartmentNumber = stop.address.address.apartmentNumber,
+            addressPostalCode = stop.address.address.postalCode,
+            addressCity = stop.address.address.city,
+            latitude = stop.address.latitude,
+            longitude = stop.address.longitude,
+            isCancelled = stop.isCancelled,
+            cancelledAt = stop.cancelledAt,
+            cancellationReason = stop.cancellationReason,
+            actualTime = stop.actualTime,
+            executionStatus = stop.executionStatus,
+            executionNotes = stop.executionNotes,
+            executedByUserId = stop.executedByUserId,
+            executedByName = stop.executedByName
         )
     }
 }
