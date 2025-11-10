@@ -3,8 +3,9 @@ package pl.sienkiewiczmaciej.routecrm.route.reorderstops
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import pl.sienkiewiczmaciej.routecrm.route.domain.*
-import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteNotFoundException
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
@@ -28,7 +29,7 @@ data class ReorderRouteStopsResult(
 
 @Component
 class ReorderRouteStopsHandler(
-    private val routeRepository: RouteRepository,
+    private val validatorComposite: ReorderStopsValidatorComposite,
     private val stopRepository: RouteStopRepository,
     private val authService: AuthorizationService
 ) {
@@ -37,63 +38,30 @@ class ReorderRouteStopsHandler(
         principal: UserPrincipal,
         command: ReorderRouteStopsCommand
     ): ReorderRouteStopsResult {
+        // 1. Authorization
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR)
         authService.requireSameCompany(principal.companyId, command.companyId)
 
-        val route = routeRepository.findById(command.companyId, command.routeId)
-            ?: throw RouteNotFoundException(command.routeId)
+        // 2. Validate (throws exception on failure, returns context)
+        val context = validatorComposite.validate(command)
 
-        require(route.status == RouteStatus.PLANNED) {
-            "Cannot reorder stops in route with status ${route.status}"
-        }
-
-        val existingStops = stopRepository.findByRoute(command.companyId, command.routeId)
-
-        val stopIdToStopMap = existingStops.associateBy { it.id }
-
-        command.stopOrders.forEach { update ->
-            require(stopIdToStopMap.containsKey(update.stopId)) {
-                "Stop ${update.stopId.value} not found in route"
-            }
-            require(update.newOrder > 0) {
-                "Stop order must be positive"
-            }
-        }
-
-        val newOrders = command.stopOrders.map { it.newOrder }
-        require(newOrders.toSet().size == newOrders.size) {
-            "Duplicate stop orders are not allowed"
-        }
-
-        // Walidacja że wszystkie stopy mogą być modyfikowane
-        command.stopOrders.forEach { update ->
-            val stop = stopIdToStopMap[update.stopId]!!
-            require(stop.canBeModified()) {
-                "Cannot reorder stop ${stop.id.value}: ${
-                    when {
-                        stop.isExecuted() -> "already executed"
-                        stop.isCancelled -> "cancelled"
-                        else -> "not modifiable"
-                    }
-                }"
-            }
-        }
-
+        // 3. Use domain service to reorder (with temporary negative orders to avoid conflicts)
+        // First pass: assign temporary negative orders
         val stopsWithTemporaryOrder = command.stopOrders.mapIndexed { index, update ->
-            val stop = stopIdToStopMap[update.stopId]!!
+            val stop = context.existingStops.first { it.id == update.stopId }
             stop.updateOrder(-(index + 1))
         }
         stopRepository.saveAll(stopsWithTemporaryOrder)
 
+        // Second pass: assign final orders
         val refreshedStops = stopRepository.findByRoute(command.companyId, command.routeId)
-        val refreshedStopMap = refreshedStops.associateBy { it.id }
-
         val stopsWithFinalOrder = command.stopOrders.map { update ->
-            val stop = refreshedStopMap[update.stopId]!!
+            val stop = refreshedStops.first { it.id == update.stopId }
             stop.updateOrder(update.newOrder)
         }
         stopRepository.saveAll(stopsWithFinalOrder)
 
+        // 5. Return result
         return ReorderRouteStopsResult(
             routeId = command.routeId,
             updatedStopsCount = stopsWithFinalOrder.size

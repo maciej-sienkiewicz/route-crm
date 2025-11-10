@@ -3,10 +3,10 @@ package pl.sienkiewiczmaciej.routecrm.route.updatestop
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import pl.sienkiewiczmaciej.routecrm.route.domain.*
-import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteNotFoundException
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
-import pl.sienkiewiczmaciej.routecrm.shared.api.NotFoundException
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
@@ -28,60 +28,44 @@ data class UpdateRouteStopResult(
     val address: ScheduleAddress
 )
 
-class RouteStopNotFoundException(stopId: RouteStopId) :
-    NotFoundException("Route stop ${stopId.value} not found")
-
 @Component
 class UpdateRouteStopHandler(
-    private val routeRepository: RouteRepository,
-    private val stopRepository: RouteStopRepository,
+    private val validatorComposite: UpdateRouteStopValidatorComposite,
     private val geocodingService: GeocodingService,
+    private val stopRepository: RouteStopRepository,
     private val authService: AuthorizationService
 ) {
     @Transactional
     suspend fun handle(principal: UserPrincipal, command: UpdateRouteStopCommand): UpdateRouteStopResult {
+        // 1. Authorization
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR)
         authService.requireSameCompany(principal.companyId, command.companyId)
 
-        val route = routeRepository.findById(command.companyId, command.routeId)
-            ?: throw RouteNotFoundException(command.routeId)
+        // 2. Validate (throws exception on failure, returns context)
+        val context = validatorComposite.validate(command)
 
-        require(route.status == RouteStatus.PLANNED) {
-            "Cannot update stops in route with status ${route.status}"
-        }
-
-        val stop = stopRepository.findById(command.companyId, command.stopId)
-            ?: throw RouteStopNotFoundException(command.stopId)
-
-        require(stop.routeId == command.routeId) {
-            "Stop ${command.stopId.value} does not belong to route ${command.routeId.value}"
-        }
-
-        require(stop.canBeModified()) {
-            "Cannot update stop: ${
-                when {
-                    stop.isExecuted() -> "already executed"
-                    stop.isCancelled -> "cancelled"
-                    else -> "not modifiable"
-                }
-            }"
-        }
-
-        // Geokoduj nowy adres
-        val geocodingResult = geocodingService.geocodeAddress(command.address.address)
-
-        val addressWithCoordinates = if (geocodingResult != null) {
-            command.address.copy(
-                latitude = geocodingResult.latitude,
-                longitude = geocodingResult.longitude
-            )
+        // 3. Geocode new address if needed
+        val addressWithCoordinates = if (command.address.latitude == null || command.address.longitude == null) {
+            val geocodingResult = geocodingService.geocodeAddress(command.address.address)
+            if (geocodingResult != null) {
+                command.address.copy(
+                    latitude = geocodingResult.latitude,
+                    longitude = geocodingResult.longitude
+                )
+            } else {
+                command.address
+            }
         } else {
             command.address
         }
 
-        val updated = stop.updateDetails(command.estimatedTime, addressWithCoordinates)
+        // 4. Update stop using domain method
+        val updated = context.stop.updateDetails(command.estimatedTime, addressWithCoordinates)
+
+        // 5. Persist updated stop
         val saved = stopRepository.save(updated)
 
+        // 6. Return result
         return UpdateRouteStopResult(
             id = saved.id,
             estimatedTime = saved.estimatedTime,

@@ -4,10 +4,9 @@ package pl.sienkiewiczmaciej.routecrm.route.cancelschedule
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
-import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteNotFoundException
+import pl.sienkiewiczmaciej.routecrm.route.domain.StopType
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
@@ -32,53 +31,32 @@ data class CancelRouteScheduleResult(
 
 @Component
 class CancelRouteScheduleHandler(
-    private val routeRepository: RouteRepository,
+    private val validatorComposite: CancelScheduleValidatorComposite,
     private val stopRepository: RouteStopRepository,
     private val authService: AuthorizationService
 ) {
     @Transactional
     suspend fun handle(principal: UserPrincipal, command: CancelRouteScheduleCommand): CancelRouteScheduleResult {
+        // 1. Authorization
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR)
         authService.requireSameCompany(principal.companyId, command.companyId)
 
-        val route = routeRepository.findById(command.companyId, command.routeId)
-            ?: throw RouteNotFoundException(command.routeId)
+        // 2. Validate (throws exception on failure, returns context)
+        val context = validatorComposite.validate(command)
 
-        // Znajdź wszystkie stopy dla tego schedule
-        val allStops = stopRepository.findByRoute(command.companyId, command.routeId, includeCancelled = false)
-        val scheduleStops = allStops.filter { it.scheduleId == command.scheduleId }
+        // 3. Find pickup and dropoff stops
+        val pickupStop = context.scheduleStops.first { it.stopType == StopType.PICKUP }
+        val dropoffStop = context.scheduleStops.first { it.stopType == StopType.DROPOFF }
 
-        require(scheduleStops.isNotEmpty()) {
-            "Schedule ${command.scheduleId.value} not found in route ${command.routeId.value}"
-        }
-
-        // Powinny być dokładnie 2 stopy: pickup i dropoff
-        require(scheduleStops.size == 2) {
-            "Expected 2 stops (pickup and dropoff) for schedule ${command.scheduleId.value}, found ${scheduleStops.size}"
-        }
-
-        val pickupStop = scheduleStops.find { it.stopType == pl.sienkiewiczmaciej.routecrm.route.domain.StopType.PICKUP }
-            ?: throw IllegalStateException("Pickup stop not found for schedule ${command.scheduleId.value}")
-
-        val dropoffStop = scheduleStops.find { it.stopType == pl.sienkiewiczmaciej.routecrm.route.domain.StopType.DROPOFF }
-            ?: throw IllegalStateException("Dropoff stop not found for schedule ${command.scheduleId.value}")
-
-        // Waliduj że stopy mogą być anulowane
-        require(!pickupStop.isExecuted() && !dropoffStop.isExecuted()) {
-            "Cannot cancel schedule: one or both stops have already been executed"
-        }
-
-        require(!pickupStop.isCancelled && !dropoffStop.isCancelled) {
-            "Schedule ${command.scheduleId.value} is already cancelled"
-        }
-
-        // Anuluj oba stopy
+        // 4. Cancel both stops using domain method
         val cancelledPickup = pickupStop.cancel(command.reason)
         val cancelledDropoff = dropoffStop.cancel(command.reason)
 
+        // 5. Persist cancelled stops
         stopRepository.save(cancelledPickup)
         stopRepository.save(cancelledDropoff)
 
+        // 6. Return result
         return CancelRouteScheduleResult(
             scheduleId = command.scheduleId,
             pickupStopId = cancelledPickup.id,
