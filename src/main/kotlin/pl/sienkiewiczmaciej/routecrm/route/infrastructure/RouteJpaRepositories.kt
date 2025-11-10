@@ -11,17 +11,20 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
 import java.time.LocalDate
 import java.time.LocalTime
 
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteJpaRepositories.kt
+
 interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
     fun findByIdAndCompanyId(id: String, companyId: String): RouteEntity?
 
     fun findByCompanyId(companyId: String, pageable: Pageable): Page<RouteEntity>
 
+    // POPRAWIONE ZAPYTANIE - jawne rzutowanie typów
     @Query("""
         SELECT r FROM RouteEntity r
         WHERE r.companyId = :companyId
-        AND (:date IS NULL OR r.date = :date)
-        AND (:status IS NULL OR r.status = :status)
-        AND (:driverId IS NULL OR r.driverId = :driverId)
+        AND (CAST(:date AS date) IS NULL OR r.date = :date)
+        AND (CAST(:status AS string) IS NULL OR r.status = :status)
+        AND (CAST(:driverId AS string) IS NULL OR r.driverId = :driverId)
     """)
     fun findByFilters(
         @Param("companyId") companyId: String,
@@ -35,7 +38,7 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         SELECT r FROM RouteEntity r
         WHERE r.companyId = :companyId
         AND r.driverId = :driverId
-        AND (:date IS NULL OR r.date = :date)
+        AND (CAST(:date AS date) IS NULL OR r.date = :date)
     """)
     fun findByCompanyIdAndDriverIdAndDate(
         @Param("companyId") companyId: String,
@@ -51,7 +54,7 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         AND r.driverId = :driverId
         AND r.date = :date
         AND r.status IN ('PLANNED', 'IN_PROGRESS')
-        AND (:excludeRouteId IS NULL OR r.id != :excludeRouteId)
+        AND (CAST(:excludeRouteId AS string) IS NULL OR r.id != :excludeRouteId)
         AND (
             (r.estimatedStartTime < :endTime AND r.estimatedEndTime > :startTime)
         )
@@ -72,7 +75,7 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         AND r.vehicleId = :vehicleId
         AND r.date = :date
         AND r.status IN ('PLANNED', 'IN_PROGRESS')
-        AND (:excludeRouteId IS NULL OR r.id != :excludeRouteId)
+        AND (CAST(:excludeRouteId AS string) IS NULL OR r.id != :excludeRouteId)
         AND (
             (r.estimatedStartTime < :endTime AND r.estimatedEndTime > :startTime)
         )
@@ -85,7 +88,24 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         @Param("endTime") endTime: LocalTime,
         @Param("excludeRouteId") excludeRouteId: String?
     ): Boolean
+
+    // NOWE ZAPYTANIE dla history/upcoming
+    @Query("""
+        SELECT DISTINCT r FROM RouteEntity r
+        JOIN RouteStopEntity s ON s.routeId = r.id AND s.companyId = r.companyId
+        WHERE r.companyId = :companyId
+        AND s.scheduleId = :scheduleId
+        AND r.status IN :statuses
+        ORDER BY r.date DESC, r.estimatedStartTime DESC
+    """)
+    fun findByCompanyIdAndScheduleIdAndStatuses(
+        @Param("companyId") companyId: String,
+        @Param("scheduleId") scheduleId: String,
+        @Param("statuses") statuses: Set<RouteStatus>,
+        pageable: Pageable
+    ): Page<RouteEntity>
 }
+
 
 interface RouteStopJpaRepository : JpaRepository<RouteStopEntity, String> {
     fun findByIdAndCompanyId(id: String, companyId: String): RouteStopEntity?

@@ -26,11 +26,13 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
 import pl.sienkiewiczmaciej.routecrm.route.executestop.ExecuteRouteStopHandler
 import pl.sienkiewiczmaciej.routecrm.route.getbyid.GetRouteHandler
 import pl.sienkiewiczmaciej.routecrm.route.getbyid.GetRouteQuery
+import pl.sienkiewiczmaciej.routecrm.route.history.GetRouteHistoryHandler
 import pl.sienkiewiczmaciej.routecrm.route.list.ListRoutesHandler
 import pl.sienkiewiczmaciej.routecrm.route.list.ListRoutesQuery
 import pl.sienkiewiczmaciej.routecrm.route.note.AddRouteNoteCommand
 import pl.sienkiewiczmaciej.routecrm.route.note.AddRouteNoteHandler
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsHandler
+import pl.sienkiewiczmaciej.routecrm.route.upcoming.GetUpcomingRoutesHandler
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateRouteStatusCommand
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateRouteStatusHandler
 import pl.sienkiewiczmaciej.routecrm.route.updatestop.UpdateRouteStopHandler
@@ -53,7 +55,9 @@ class RouteController(
     private val executeStopHandler: ExecuteRouteStopHandler,
     private val addNoteHandler: AddRouteNoteHandler,
     private val deleteHandler: DeleteRouteHandler,
-    private val availableChildrenHandler: ListAvailableChildrenHandler
+    private val availableChildrenHandler: ListAvailableChildrenHandler,
+    private val getRouteHistoryHandler: GetRouteHistoryHandler,
+    private val getUpcomingRoutesHandler: GetUpcomingRoutesHandler
 ) : BaseController() {
 
     @GetMapping("/available-children")
@@ -258,5 +262,35 @@ class RouteController(
         )
         deleteHandler.handle(principal, command)
         return ResponseEntity.status(NO_CONTENT).build()
+    }
+
+    @GetMapping("/history")
+    suspend fun getRouteHistory(
+        @RequestParam scheduleId: String,
+        @PageableDefault(size = 20, sort = ["date"], direction = org.springframework.data.domain.Sort.Direction.DESC) pageable: Pageable
+    ): Page<RouteHistoryResponse> {
+        val principal = getPrincipal()
+        val query = pl.sienkiewiczmaciej.routecrm.route.history.GetRouteHistoryQuery(
+            companyId = principal.companyId,
+            scheduleId = ScheduleId.from(scheduleId),
+            pageable = pageable
+        )
+        return getRouteHistoryHandler.handle(principal, query)
+            .map { RouteHistoryResponse.from(it) }
+    }
+
+    @GetMapping("/upcoming")
+    suspend fun getUpcomingRoutes(
+        @RequestParam scheduleId: String,
+        @PageableDefault(size = 20, sort = ["date", "estimatedStartTime"]) pageable: Pageable
+    ): Page<UpcomingRouteResponse> {
+        val principal = getPrincipal()
+        val query = pl.sienkiewiczmaciej.routecrm.route.upcoming.GetUpcomingRoutesQuery(
+            companyId = principal.companyId,
+            scheduleId = ScheduleId.from(scheduleId),
+            pageable = pageable
+        )
+        return getUpcomingRoutesHandler.handle(principal, query)
+            .map { UpcomingRouteResponse.from(it) }
     }
 }

@@ -3,11 +3,7 @@ package pl.sienkiewiczmaciej.routecrm.route
 
 import com.fasterxml.jackson.annotation.JsonFormat
 import jakarta.validation.Valid
-import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.NotEmpty
-import jakarta.validation.constraints.NotNull
-import jakarta.validation.constraints.Size
+import jakarta.validation.constraints.*
 import pl.sienkiewiczmaciej.routecrm.child.TransportNeedsResponse
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.child.domain.DisabilityType
@@ -28,7 +24,6 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.route.executestop.ExecuteRouteStopCommand
 import pl.sienkiewiczmaciej.routecrm.route.executestop.ExecuteRouteStopResult
 import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteDetail
-import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteStopDetail
 import pl.sienkiewiczmaciej.routecrm.route.list.RouteListItem
 import pl.sienkiewiczmaciej.routecrm.route.note.AddNoteResult
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsCommand
@@ -704,6 +699,109 @@ data class CancelRouteScheduleResponse(
             dropoffStopId = result.dropoffStopId.value,
             cancelledStopsCount = result.cancelledStopsCount,
             cancelledAt = result.cancelledAt
+        )
+    }
+}
+
+data class RouteHistoryResponse(
+    val id: String,
+    val routeName: String,
+    val date: LocalDate,
+    val status: RouteStatus,
+    val driver: DriverSimpleResponse,
+    val vehicle: VehicleSimpleResponse,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedStartTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedEndTime: LocalTime,
+    val actualStartTime: Instant?,
+    val actualEndTime: Instant?,
+    val stopsCount: Int,
+    val completedStopsCount: Int
+) {
+    companion object {
+        fun from(item: pl.sienkiewiczmaciej.routecrm.route.history.RouteHistoryItem) = RouteHistoryResponse(
+            id = item.id.value,
+            routeName = item.routeName,
+            date = item.date,
+            status = item.status,
+            driver = DriverSimpleResponse(
+                id = item.driverId.value,
+                firstName = item.driverFirstName,
+                lastName = item.driverLastName
+            ),
+            vehicle = VehicleSimpleResponse(
+                id = item.vehicleId.value,
+                registrationNumber = item.vehicleRegistrationNumber,
+                model = item.vehicleModel
+            ),
+            estimatedStartTime = item.estimatedStartTime,
+            estimatedEndTime = item.estimatedEndTime,
+            actualStartTime = item.actualStartTime,
+            actualEndTime = item.actualEndTime,
+            stopsCount = item.stopsCount,
+            completedStopsCount = item.completedStopsCount
+        )
+    }
+}
+
+data class UpcomingRouteResponse(
+    val id: String,
+    val routeName: String,
+    val date: LocalDate,
+    val status: RouteStatus,
+    val driver: DriverSimpleResponse,
+    val vehicle: VehicleSimpleResponse,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedStartTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedEndTime: LocalTime,
+    val stopsCount: Int,
+    val childStops: List<ChildStopInfoResponse>
+) {
+    companion object {
+        fun from(item: pl.sienkiewiczmaciej.routecrm.route.upcoming.UpcomingRouteItem) = UpcomingRouteResponse(
+            id = item.id.value,
+            routeName = item.routeName,
+            date = item.date,
+            status = item.status,
+            driver = DriverSimpleResponse(
+                id = item.driverId.value,
+                firstName = item.driverFirstName,
+                lastName = item.driverLastName
+            ),
+            vehicle = VehicleSimpleResponse(
+                id = item.vehicleId.value,
+                registrationNumber = item.vehicleRegistrationNumber,
+                model = item.vehicleModel
+            ),
+            estimatedStartTime = item.estimatedStartTime,
+            estimatedEndTime = item.estimatedEndTime,
+            stopsCount = item.stopsCount,
+            childStops = item.childStops.map { ChildStopInfoResponse.from(it) }
+        )
+    }
+}
+
+data class ChildStopInfoResponse(
+    val stopId: String,
+    val stopOrder: Int,
+    val stopType: StopType,
+    val childFirstName: String,
+    val childLastName: String,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedTime: LocalTime,
+    val address: ScheduleAddressResponse
+) {
+    companion object {
+        fun from(stop: pl.sienkiewiczmaciej.routecrm.route.upcoming.ChildStopDetail) = ChildStopInfoResponse(
+            stopId = stop.stopId.value,
+            stopOrder = stop.stopOrder,
+            stopType = stop.stopType,
+            childFirstName = stop.childFirstName,
+            childLastName = stop.childLastName,
+            estimatedTime = stop.estimatedTime,
+            address = ScheduleAddressResponse.from(stop.address)
         )
     }
 }

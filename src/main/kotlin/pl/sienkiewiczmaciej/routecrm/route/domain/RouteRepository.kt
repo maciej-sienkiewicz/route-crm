@@ -4,6 +4,7 @@ package pl.sienkiewiczmaciej.routecrm.route.domain
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
 import java.time.LocalDate
@@ -42,6 +43,12 @@ interface RouteRepository {
         endTime: LocalTime,
         excludeRouteId: RouteId? = null
     ): Boolean
+    suspend fun findBySchedule(
+        companyId: CompanyId,
+        scheduleId: ScheduleId,
+        statuses: Set<RouteStatus>,
+        pageable: Pageable
+    ): Page<Route>
 }
 
 interface RouteStopRepository {
