@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/create/CreateRouteHandler.kt
+// route/create/CreateRouteHandler.kt (UPDATED WITH EVENTS)
 package pl.sienkiewiczmaciej.routecrm.route.create
 
 import org.springframework.stereotype.Component
@@ -6,11 +6,13 @@ import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteCreatedEvent
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
 import java.time.LocalDate
@@ -56,6 +58,7 @@ class CreateRouteHandler(
     private val stopFactory: RouteStopFactory,
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
+    private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -82,7 +85,22 @@ class CreateRouteHandler(
         )
         stopRepository.saveAll(stops)
 
-        // 6. Return result
+        // 6. Publish domain event
+        eventPublisher.publish(
+            RouteCreatedEvent(
+                aggregateId = savedRoute.id.value,
+                routeId = savedRoute.id,
+                companyId = savedRoute.companyId,
+                routeName = savedRoute.routeName,
+                date = savedRoute.date,
+                driverId = savedRoute.driverId,
+                vehicleId = savedRoute.vehicleId,
+                createdBy = principal.userId,
+                createdByName = "${principal.firstName} ${principal.lastName}"
+            )
+        )
+
+        // 7. Return result
         return CreateRouteResult(
             id = savedRoute.id,
             companyId = savedRoute.companyId,

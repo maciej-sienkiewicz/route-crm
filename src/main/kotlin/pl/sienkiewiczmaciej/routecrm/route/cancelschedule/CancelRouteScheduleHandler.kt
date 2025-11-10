@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/cancelschedule/CancelRouteScheduleHandler.kt
+// route/cancelschedule/CancelRouteScheduleHandler.kt (UPDATED WITH EVENTS)
 package pl.sienkiewiczmaciej.routecrm.route.cancelschedule
 
 import org.springframework.stereotype.Component
@@ -7,10 +7,12 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.StopType
+import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteScheduleCancelledEvent
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 import java.time.Instant
 
@@ -33,6 +35,7 @@ data class CancelRouteScheduleResult(
 class CancelRouteScheduleHandler(
     private val validatorComposite: CancelScheduleValidatorComposite,
     private val stopRepository: RouteStopRepository,
+    private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -56,7 +59,20 @@ class CancelRouteScheduleHandler(
         stopRepository.save(cancelledPickup)
         stopRepository.save(cancelledDropoff)
 
-        // 6. Return result
+        // 6. Publish event
+        eventPublisher.publish(
+            RouteScheduleCancelledEvent(
+                aggregateId = command.routeId.value,
+                routeId = command.routeId,
+                scheduleId = command.scheduleId,
+                pickupStopId = cancelledPickup.id,
+                dropoffStopId = cancelledDropoff.id,
+                cancelledBy = principal.userId,
+                reason = command.reason
+            )
+        )
+
+        // 7. Return result
         return CancelRouteScheduleResult(
             scheduleId = command.scheduleId,
             pickupStopId = cancelledPickup.id,

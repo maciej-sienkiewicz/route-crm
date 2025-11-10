@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/reorderstops/ReorderRouteStopsHandler.kt
+// route/reorderstops/ReorderRouteStopsHandler.kt (UPDATED WITH EVENTS)
 package pl.sienkiewiczmaciej.routecrm.route.reorderstops
 
 import org.springframework.stereotype.Component
@@ -6,9 +6,11 @@ import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
+import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteStopsReorderedEvent
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 
 data class StopOrderUpdate(
@@ -31,6 +33,7 @@ data class ReorderRouteStopsResult(
 class ReorderRouteStopsHandler(
     private val validatorComposite: ReorderStopsValidatorComposite,
     private val stopRepository: RouteStopRepository,
+    private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -45,7 +48,7 @@ class ReorderRouteStopsHandler(
         // 2. Validate (throws exception on failure, returns context)
         val context = validatorComposite.validate(command)
 
-        // 3. Use domain service to reorder (with temporary negative orders to avoid conflicts)
+        // 3. Two-phase reorder to avoid unique constraint violations
         // First pass: assign temporary negative orders
         val stopsWithTemporaryOrder = command.stopOrders.mapIndexed { index, update ->
             val stop = context.existingStops.first { it.id == update.stopId }
@@ -60,6 +63,16 @@ class ReorderRouteStopsHandler(
             stop.updateOrder(update.newOrder)
         }
         stopRepository.saveAll(stopsWithFinalOrder)
+
+        // 4. Publish event
+        eventPublisher.publish(
+            RouteStopsReorderedEvent(
+                aggregateId = command.routeId.value,
+                routeId = command.routeId,
+                reorderedBy = principal.userId,
+                stopsCount = stopsWithFinalOrder.size
+            )
+        )
 
         // 5. Return result
         return ReorderRouteStopsResult(

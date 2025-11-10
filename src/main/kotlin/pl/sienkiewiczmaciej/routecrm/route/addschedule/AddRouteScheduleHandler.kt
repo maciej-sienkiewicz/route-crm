@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/addschedule/AddRouteScheduleHandler.kt
+// route/addschedule/AddRouteScheduleHandler.kt (UPDATED WITH EVENTS)
 package pl.sienkiewiczmaciej.routecrm.route.addschedule
 
 import org.springframework.stereotype.Component
@@ -8,12 +8,14 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.StopType
+import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteScheduleAddedEvent
 import pl.sienkiewiczmaciej.routecrm.route.domain.services.RouteStopOrderingService
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 import java.time.LocalTime
 
@@ -46,6 +48,7 @@ class AddRouteScheduleHandler(
     private val stopsFactory: AddRouteScheduleStopsFactory,
     private val orderingService: RouteStopOrderingService,
     private val stopRepository: RouteStopRepository,
+    private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -85,7 +88,20 @@ class AddRouteScheduleHandler(
         val savedPickup = stopRepository.save(pickupStop)
         val savedDropoff = stopRepository.save(dropoffStop)
 
-        // 6. Return result
+        // 6. Publish domain event
+        eventPublisher.publish(
+            RouteScheduleAddedEvent(
+                aggregateId = command.routeId.value,
+                routeId = command.routeId,
+                scheduleId = command.scheduleId,
+                childId = command.childId,
+                pickupStopId = savedPickup.id,
+                dropoffStopId = savedDropoff.id,
+                addedBy = principal.userId
+            )
+        )
+
+        // 7. Return result
         return AddRouteScheduleResult(
             pickupStopId = savedPickup.id,
             dropoffStopId = savedDropoff.id,

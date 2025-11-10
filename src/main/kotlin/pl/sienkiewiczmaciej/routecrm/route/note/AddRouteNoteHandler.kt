@@ -1,14 +1,10 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/note/AddRouteNoteHandler.kt
+// route/note/AddRouteNoteHandler.kt (SIMPLE - NO EVENTS NEEDED)
 package pl.sienkiewiczmaciej.routecrm.route.note
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteNote
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteNoteId
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteNoteRepository
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteRepository
+import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteNotFoundException
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
@@ -30,6 +26,10 @@ data class AddNoteResult(
     val createdAt: Instant
 )
 
+/**
+ * Simple handler for adding notes to routes.
+ * No complex validation or events needed.
+ */
 @Component
 class AddRouteNoteHandler(
     private val routeRepository: RouteRepository,
@@ -38,9 +38,11 @@ class AddRouteNoteHandler(
 ) {
     @Transactional
     suspend fun handle(principal: UserPrincipal, command: AddRouteNoteCommand): AddNoteResult {
+        // 1. Authorization
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR, UserRole.DRIVER)
         authService.requireSameCompany(principal.companyId, command.companyId)
 
+        // 2. Load route and check access
         val route = routeRepository.findById(command.companyId, command.routeId)
             ?: throw RouteNotFoundException(command.routeId)
 
@@ -50,6 +52,7 @@ class AddRouteNoteHandler(
             }
         }
 
+        // 3. Create note using domain factory
         val note = RouteNote.create(
             companyId = command.companyId,
             routeId = command.routeId,
@@ -58,6 +61,7 @@ class AddRouteNoteHandler(
             content = command.content
         )
 
+        // 4. Persist and return
         val saved = routeNoteRepository.save(note)
 
         return AddNoteResult(

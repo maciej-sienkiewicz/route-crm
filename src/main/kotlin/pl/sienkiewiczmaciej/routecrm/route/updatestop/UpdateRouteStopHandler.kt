@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/updatestop/UpdateRouteStopHandler.kt
+// route/updatestop/UpdateRouteStopHandler.kt (UPDATED WITH EVENTS)
 package pl.sienkiewiczmaciej.routecrm.route.updatestop
 
 import org.springframework.stereotype.Component
@@ -6,10 +6,12 @@ import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
+import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteStopUpdatedEvent
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.external.GeocodingService
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 import java.time.LocalTime
@@ -33,6 +35,7 @@ class UpdateRouteStopHandler(
     private val validatorComposite: UpdateRouteStopValidatorComposite,
     private val geocodingService: GeocodingService,
     private val stopRepository: RouteStopRepository,
+    private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -65,7 +68,17 @@ class UpdateRouteStopHandler(
         // 5. Persist updated stop
         val saved = stopRepository.save(updated)
 
-        // 6. Return result
+        // 6. Publish event
+        eventPublisher.publish(
+            RouteStopUpdatedEvent(
+                aggregateId = saved.id.value,
+                routeId = saved.routeId,
+                stopId = saved.id,
+                updatedBy = principal.userId
+            )
+        )
+
+        // 7. Return result
         return UpdateRouteStopResult(
             id = saved.id,
             estimatedTime = saved.estimatedTime,
