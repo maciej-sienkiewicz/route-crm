@@ -36,6 +36,9 @@ data class AddRouteStopResult(
     val childId: ChildId
 )
 
+/**
+ * Może kiedyś zostanie użyte. A może nie.
+ */
 @Component
 class AddRouteStopHandler(
     private val routeRepository: RouteRepository,
