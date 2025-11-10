@@ -1,3 +1,4 @@
+// route/availablechildren/ListAvailableChildrenHandler.kt (REFACTORED)
 package pl.sienkiewiczmaciej.routecrm.route.availablechildren
 
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +24,6 @@ import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.Period
 
 data class ListAvailableChildrenQuery(
     val companyId: CompanyId,
@@ -48,6 +48,10 @@ data class AvailableChildItem(
     val guardianPhone: String
 )
 
+/**
+ * Query handler for listing available children for a given date.
+ * No validators needed - this is a read-only query.
+ */
 @Component
 class ListAvailableChildrenHandler(
     private val childRepository: ChildJpaRepository,
@@ -58,83 +62,30 @@ class ListAvailableChildrenHandler(
 ) {
     @Transactional(readOnly = true)
     suspend fun handle(principal: UserPrincipal, query: ListAvailableChildrenQuery): List<AvailableChildItem> {
+        // 1. Authorization
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR)
         authService.requireSameCompany(principal.companyId, query.companyId)
 
+        // 2. Convert date to day of week
         val dayOfWeek = convertToDayOfWeek(query.date)
 
+        // 3. Load and filter data
         return withContext(Dispatchers.IO) {
-            // Pobierz wszystkie aktywne dzieci dla firmy
+            // Get all active children
             val activeChildren = childRepository.findByCompanyIdAndStatus(
                 query.companyId.value,
                 ChildStatus.ACTIVE,
                 org.springframework.data.domain.Pageable.unpaged()
             ).content
 
-            // Dla każdego dziecka znajdź aktywne harmonogramy dla danego dnia
+            // Process each child in parallel
             val results = activeChildren.map { childEntity ->
                 async {
-                    val child = childEntity.toDomain()
-
-                    // Znajdź harmonogramy dla dziecka
-                    val schedules = scheduleRepository.findByCompanyIdAndChildId(
-                        query.companyId.value,
-                        child.id.value
-                    )
-
-                    // Filtruj harmonogramy: aktywne i zawierające odpowiedni dzień tygodnia
-                    val matchingSchedules = schedules.filter { scheduleEntity ->
-                        scheduleEntity.active && scheduleEntity.days.contains(dayOfWeek)
-                    }
-
-                    // Dla każdego pasującego harmonogramu stwórz wpis
-                    matchingSchedules.mapNotNull { scheduleEntity ->
-                        val schedule = scheduleEntity.toDomain()
-
-                        // Pobierz opiekuna
-                        val assignments = guardianAssignmentRepository.findByCompanyIdAndChildId(
-                            query.companyId.value,
-                            child.id.value
-                        )
-
-                        // Wybierz głównego opiekuna lub pierwszego dostępnego
-                        val primaryAssignment = assignments.find { it.isPrimary } ?: assignments.firstOrNull()
-
-                        if (primaryAssignment != null) {
-                            val guardian = guardianRepository.findByIdAndCompanyId(
-                                primaryAssignment.guardianId,
-                                query.companyId.value
-                            )
-
-                            if (guardian != null) {
-                                AvailableChildItem(
-                                    childId = child.id,
-                                    firstName = child.firstName,
-                                    lastName = child.lastName,
-                                    birthDate = child.birthDate,
-                                    disability = child.disability,
-                                    transportNeeds = child.transportNeeds,
-                                    scheduleId = schedule.id,
-                                    scheduleName = schedule.name,
-                                    pickupTime = schedule.pickupTime,
-                                    dropoffTime = schedule.dropoffTime,
-                                    pickupAddress = schedule.pickupAddress,
-                                    dropoffAddress = schedule.dropoffAddress,
-                                    guardianFirstName = guardian.firstName,
-                                    guardianLastName = guardian.lastName,
-                                    guardianPhone = guardian.phone
-                                )
-                            } else {
-                                null
-                            }
-                        } else {
-                            null
-                        }
-                    }
+                    processChild(childEntity, query.companyId.value, dayOfWeek)
                 }
             }.awaitAll().flatten()
 
-            // Sortowanie: pickupTime ASC, lastName ASC, firstName ASC
+            // Sort results
             results.sortedWith(
                 compareBy(
                     { it.pickupTime },
@@ -142,6 +93,67 @@ class ListAvailableChildrenHandler(
                     { it.firstName }
                 )
             )
+        }
+    }
+
+    private suspend fun processChild(
+        childEntity: pl.sienkiewiczmaciej.routecrm.child.infrastructure.ChildEntity,
+        companyIdValue: String,
+        dayOfWeek: DayOfWeek
+    ): List<AvailableChildItem> {
+        val child = childEntity.toDomain()
+
+        // Find active schedules for this child on this day
+        val schedules = scheduleRepository.findByCompanyIdAndChildId(
+            companyIdValue,
+            child.id.value
+        ).filter { it.active && it.days.contains(dayOfWeek) }
+
+        // Get primary guardian
+        val assignments = guardianAssignmentRepository.findByCompanyIdAndChildId(
+            companyIdValue,
+            child.id.value
+        )
+        val primaryAssignment = assignments.find { it.isPrimary } ?: assignments.firstOrNull()
+
+        val (guardianFirstName, guardianLastName, guardianPhone) = if (primaryAssignment != null) {
+            val guardian = guardianRepository.findByIdAndCompanyId(
+                primaryAssignment.guardianId,
+                companyIdValue
+            )
+            if (guardian != null) {
+                Triple(guardian.firstName, guardian.lastName, guardian.phone)
+            } else {
+                Triple("", "", "")
+            }
+        } else {
+            Triple("", "", "")
+        }
+
+        // Create item for each matching schedule
+        return schedules.mapNotNull { scheduleEntity ->
+            if (guardianFirstName.isNotEmpty()) {
+                val schedule = scheduleEntity.toDomain()
+                AvailableChildItem(
+                    childId = child.id,
+                    firstName = child.firstName,
+                    lastName = child.lastName,
+                    birthDate = child.birthDate,
+                    disability = child.disability,
+                    transportNeeds = child.transportNeeds,
+                    scheduleId = schedule.id,
+                    scheduleName = schedule.name,
+                    pickupTime = schedule.pickupTime,
+                    dropoffTime = schedule.dropoffTime,
+                    pickupAddress = schedule.pickupAddress,
+                    dropoffAddress = schedule.dropoffAddress,
+                    guardianFirstName = guardianFirstName,
+                    guardianLastName = guardianLastName,
+                    guardianPhone = guardianPhone
+                )
+            } else {
+                null
+            }
         }
     }
 
