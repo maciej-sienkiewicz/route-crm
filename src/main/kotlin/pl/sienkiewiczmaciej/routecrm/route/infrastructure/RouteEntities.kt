@@ -201,7 +201,7 @@ data class RouteStopEntity(
     val updatedAt: Instant = Instant.now()
 ) {
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "route_id", insertable = false, updatable = false)
     private val route: RouteEntity? = null
 
