@@ -33,12 +33,14 @@ data class RouteScheduleAddedEvent(
     override val occurredAt: Instant = Instant.now(),
     override val aggregateId: String,
     override val aggregateType: String = "Route",
+    val companyId: CompanyId,
     val routeId: RouteId,
     val scheduleId: ScheduleId,
     val childId: ChildId,
-    val pickupStopId: RouteStopId,
-    val dropoffStopId: RouteStopId,
-    val addedBy: UserId
+    val pickupStop: RouteStop,
+    val dropoffStop: RouteStop,
+    val addedBy: UserId,
+    val routeDate: LocalDate,
 ) : DomainEvent
 
 data class RouteStopExecutedEvent(
@@ -47,6 +49,7 @@ data class RouteStopExecutedEvent(
     override val aggregateId: String,
     override val aggregateType: String = "RouteStop",
     val routeId: RouteId,
+    val companyId: CompanyId,
     val stopId: RouteStopId,
     val stopType: StopType,
     val childId: ChildId,
@@ -60,6 +63,7 @@ data class RouteStatusChangedEvent(
     override val occurredAt: Instant = Instant.now(),
     override val aggregateId: String,
     override val aggregateType: String = "Route",
+    val companyId: CompanyId,
     val routeId: RouteId,
     val previousStatus: RouteStatus,
     val newStatus: RouteStatus,
@@ -73,6 +77,7 @@ data class RouteScheduleCancelledEvent(
     override val occurredAt: Instant = Instant.now(),
     override val aggregateId: String,
     override val aggregateType: String = "Route",
+    val companyId: CompanyId,
     val routeId: RouteId,
     val scheduleId: ScheduleId,
     val pickupStopId: RouteStopId,
@@ -86,6 +91,7 @@ data class RouteScheduleDeletedEvent(
     override val occurredAt: Instant = Instant.now(),
     override val aggregateId: String,
     override val aggregateType: String = "Route",
+    val companyId: CompanyId,
     val routeId: RouteId,
     val scheduleId: ScheduleId,
     val deletedBy: UserId
@@ -96,6 +102,7 @@ data class RouteStopsReorderedEvent(
     override val occurredAt: Instant = Instant.now(),
     override val aggregateId: String,
     override val aggregateType: String = "Route",
+    val companyId: CompanyId,
     val routeId: RouteId,
     val reorderedBy: UserId,
     val stopsCount: Int
@@ -106,6 +113,7 @@ data class RouteStopUpdatedEvent(
     override val occurredAt: Instant = Instant.now(),
     override val aggregateId: String,
     override val aggregateType: String = "RouteStop",
+    val companyId: CompanyId,
     val routeId: RouteId,
     val stopId: RouteStopId,
     val updatedBy: UserId

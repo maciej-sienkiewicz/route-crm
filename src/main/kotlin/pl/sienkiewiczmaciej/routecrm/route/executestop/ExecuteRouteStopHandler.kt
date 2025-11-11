@@ -85,7 +85,8 @@ class ExecuteRouteStopHandler(
                 childId = saved.childId,
                 executionStatus = saved.executionStatus!!,
                 actualTime = saved.actualTime!!,
-                executedBy = principal.userId
+                executedBy = principal.userId,
+                companyId = principal.companyId
             )
         )
 

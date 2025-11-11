@@ -90,7 +90,8 @@ class UpdateRouteStatusHandler(
                 newStatus = saved.status,
                 changedBy = principal.userId,
                 actualStartTime = saved.actualStartTime,
-                actualEndTime = saved.actualEndTime
+                actualEndTime = saved.actualEndTime,
+                companyId = principal.companyId
             )
         )
 

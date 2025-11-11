@@ -32,6 +32,11 @@ data class Address(
         require(postalCode.matches(Regex("\\d{2}-\\d{3}"))) { "Invalid postal code format" }
         require(city.isNotBlank()) { "City is required" }
     }
+
+    override fun toString(): String {
+        val apartment = if (apartmentNumber != null) "/$apartmentNumber" else ""
+        return "$street $houseNumber$apartment, $postalCode $city"
+    }
 }
 
 enum class UserRole {

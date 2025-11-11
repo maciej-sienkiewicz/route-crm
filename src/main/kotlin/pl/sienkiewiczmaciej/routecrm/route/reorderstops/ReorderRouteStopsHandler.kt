@@ -70,7 +70,8 @@ class ReorderRouteStopsHandler(
                 aggregateId = command.routeId.value,
                 routeId = command.routeId,
                 reorderedBy = principal.userId,
-                stopsCount = stopsWithFinalOrder.size
+                stopsCount = stopsWithFinalOrder.size,
+                companyId = principal.companyId
             )
         )
 

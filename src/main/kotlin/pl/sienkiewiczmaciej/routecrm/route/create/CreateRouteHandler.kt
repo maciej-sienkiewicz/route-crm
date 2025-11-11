@@ -7,6 +7,7 @@ import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteCreatedEvent
+import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteScheduleAddedEvent
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -99,6 +100,22 @@ class CreateRouteHandler(
                 createdByName = "${principal.firstName} ${principal.lastName}"
             )
         )
+
+        val stopsBySchedule: Map<ScheduleId, List<RouteStop>> = stops.groupBy { it.scheduleId }
+        context.schedules
+            .forEach {
+                eventPublisher.publish(RouteScheduleAddedEvent(
+                    aggregateId = savedRoute.id.value,
+                    companyId = principal.companyId,
+                    routeId = savedRoute.id,
+                    scheduleId = it.key,
+                    childId = it.value.childId,
+                    pickupStop = stopsBySchedule[it.key]!!.first { it.stopType == StopType.PICKUP },
+                    dropoffStop = stopsBySchedule[it.key]!!.first { it.stopType == StopType.DROPOFF },
+                    addedBy = principal.userId,
+                    routeDate = route.date
+                ))
+            }
 
         // 7. Return result
         return CreateRouteResult(

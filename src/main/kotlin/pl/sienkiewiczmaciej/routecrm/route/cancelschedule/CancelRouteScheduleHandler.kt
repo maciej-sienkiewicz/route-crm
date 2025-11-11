@@ -68,7 +68,8 @@ class CancelRouteScheduleHandler(
                 pickupStopId = cancelledPickup.id,
                 dropoffStopId = cancelledDropoff.id,
                 cancelledBy = principal.userId,
-                reason = command.reason
+                reason = command.reason,
+                companyId = principal.companyId
             )
         )
 

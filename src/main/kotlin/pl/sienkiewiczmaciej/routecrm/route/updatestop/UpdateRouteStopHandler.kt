@@ -74,7 +74,8 @@ class UpdateRouteStopHandler(
                 aggregateId = saved.id.value,
                 routeId = saved.routeId,
                 stopId = saved.id,
-                updatedBy = principal.userId
+                updatedBy = principal.userId,
+                companyId = principal.companyId
             )
         )
 
