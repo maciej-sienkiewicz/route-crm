@@ -132,6 +132,34 @@ interface RouteStopJpaRepository : JpaRepository<RouteStopEntity, String> {
 
     @Modifying
     fun deleteByCompanyIdAndRouteId(companyId: String, routeId: String)
+
+    @Query("""
+        SELECT s FROM RouteStopEntity s
+        JOIN RouteEntity r ON s.routeId = r.id
+        WHERE s.companyId = :companyId
+        AND s.childId = :childId
+        AND r.date >= :startDate
+        AND r.date <= :endDate
+        ORDER BY r.date, s.stopOrder
+    """)
+    fun findByChildIdInDateRange(
+        @Param("companyId") companyId: String,
+        @Param("childId") childId: String,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<RouteStopEntity>
+
+    @Query("""
+        SELECT s FROM RouteStopEntity s
+        WHERE s.companyId = :companyId
+        AND s.cancelledByAbsenceId = :absenceId
+    """)
+    fun findByCancelledByAbsenceId(
+        @Param("companyId") companyId: String,
+        @Param("absenceId") absenceId: String
+    ): List<RouteStopEntity>
+
+    fun findByCancelledByAbsenceId(absenceId: String): List<RouteStopEntity>
 }
 
 interface RouteNoteJpaRepository : JpaRepository<RouteNoteEntity, String> {

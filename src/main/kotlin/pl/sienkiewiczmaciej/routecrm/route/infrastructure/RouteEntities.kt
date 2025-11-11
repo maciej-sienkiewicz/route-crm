@@ -105,7 +105,8 @@ class RouteEntity(
         Index(name = "idx_route_stops_company", columnList = "company_id"),
         Index(name = "idx_route_stops_route", columnList = "company_id, route_id"),
         Index(name = "idx_route_stops_route_order", columnList = "route_id, stop_order"),
-        Index(name = "idx_route_stops_child", columnList = "company_id, child_id")
+        Index(name = "idx_route_stops_child", columnList = "company_id, child_id"),
+        Index(name = "idx_route_stops_absence", columnList = "company_id, cancelled_by_absence_id")
     ],
     uniqueConstraints = [
         UniqueConstraint(
@@ -168,6 +169,9 @@ data class RouteStopEntity(
     @Column(name = "is_cancelled", nullable = false)
     val isCancelled: Boolean = false,
 
+    @Column(name = "cancelled_by_absence_id", length = 50)
+    val cancelledByAbsenceId: String? = null,
+
     @Column(name = "cancelled_at")
     val cancelledAt: Instant?,
 
@@ -196,6 +200,14 @@ data class RouteStopEntity(
     @Column(name = "updated_at", nullable = false)
     val updatedAt: Instant = Instant.now()
 ) {
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "route_id", insertable = false, updatable = false)
+    private val route: RouteEntity? = null
+
+    val routeDate: LocalDate
+        get() = route?.date ?: throw IllegalStateException("Route not loaded")
+
     fun toDomain() = RouteStop(
         id = RouteStopId(id),
         companyId = CompanyId(companyId),

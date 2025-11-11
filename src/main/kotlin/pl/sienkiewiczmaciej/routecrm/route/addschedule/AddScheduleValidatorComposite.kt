@@ -15,7 +15,8 @@ class AddScheduleValidatorComposite(
     private val childStatusValidator: AddScheduleChildStatusValidator,
     private val scheduleOwnershipValidator: AddScheduleScheduleOwnershipValidator,
     private val childNotInRouteValidator: AddScheduleChildNotInRouteValidator,
-    private val stopOrderValidator: AddScheduleStopOrderValidator
+    private val stopOrderValidator: AddScheduleStopOrderValidator,
+    private val absenceValidator: AddScheduleAbsenceValidator
 ) {
     /**
      * Validates the AddRouteSchedule command and returns validation context.
@@ -36,6 +37,7 @@ class AddScheduleValidatorComposite(
         scheduleOwnershipValidator.validate(command, context)
         childNotInRouteValidator.validate(command, context)
         stopOrderValidator.validate(command)
+        absenceValidator.validate(command, context)
 
         // 3. Return context for handler to use
         return context
