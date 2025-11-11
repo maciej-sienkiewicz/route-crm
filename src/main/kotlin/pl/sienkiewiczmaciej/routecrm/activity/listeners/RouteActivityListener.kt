@@ -93,8 +93,8 @@ class RouteActivityListener(
                 metadata = ActivityMetadata.of(
                     "scheduleId" to event.scheduleId.value,
                     "childId" to event.childId.value,
-                    "pickupStopId" to event.pickupStopId.value,
-                    "dropoffStopId" to event.dropoffStopId.value
+                    "pickupStopId" to event.pickupStop.id.value,
+                    "dropoffStopId" to event.dropoffStop.id.value
                 ),
                 eventId = event.eventId
             )

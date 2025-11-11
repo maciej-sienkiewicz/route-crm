@@ -60,6 +60,10 @@ class ActivityLogEntity(
     @Column(columnDefinition = "jsonb", nullable = false)
     val metadata: Map<String, Any?>,
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    val details: Map<String, Any?>,
+
     @Column(nullable = false)
     val timestamp: Instant,
 
@@ -82,7 +86,8 @@ class ActivityLogEntity(
         ),
         metadata = ActivityMetadata(metadata),
         timestamp = timestamp,
-        eventId = eventId
+        eventId = eventId,
+        details = ActivityDetails(details),
     )
 
     companion object {
@@ -100,7 +105,8 @@ class ActivityLogEntity(
             performedByRole = activity.performedBy.userRole,
             metadata = activity.metadata.data,
             timestamp = activity.timestamp,
-            eventId = activity.eventId
+            eventId = activity.eventId,
+            details = activity.details.data
         )
     }
 }

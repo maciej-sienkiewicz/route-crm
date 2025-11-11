@@ -181,7 +181,7 @@ data class ActivityLog(
                 aggregateType = aggregateType,
                 title = title.trim(),
                 description = description.trim(),
-                details = activityDetails,
+                details = details,
                 performedBy = performedBy,
                 metadata = metadata,
                 timestamp = Instant.now(),

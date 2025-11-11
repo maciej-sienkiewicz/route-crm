@@ -37,8 +37,8 @@ class RouteAuditListener {
             event.routeId.value,
             event.scheduleId.value,
             event.childId.value,
-            event.pickupStopId.value,
-            event.dropoffStopId.value,
+            event.pickupStop.id.value,
+            event.dropoffStop.id.value,
             event.addedBy.value
         )
     }
