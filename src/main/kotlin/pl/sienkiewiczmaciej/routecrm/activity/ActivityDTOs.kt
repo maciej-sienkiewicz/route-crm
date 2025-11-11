@@ -12,6 +12,7 @@ data class ActivityResponse(
     val type: ActivityType,
     val title: String,
     val description: String,
+    val details: Map<String, Any?>,
     val performedBy: PerformedByResponse,
     val timestamp: Instant,
     val metadata: Map<String, Any?>
@@ -23,6 +24,7 @@ data class ActivityResponse(
             type = item.type,
             title = item.title,
             description = item.description,
+            details = item.details,
             performedBy = PerformedByResponse(
                 name = item.performedBy,
                 role = item.performedByRole
