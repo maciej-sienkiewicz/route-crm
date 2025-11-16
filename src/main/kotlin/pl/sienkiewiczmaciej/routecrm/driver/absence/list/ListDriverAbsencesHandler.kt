@@ -9,6 +9,7 @@ import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.DriverAbsenceStatus
 import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.DriverAbsenceType
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.shared.domain.UserId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
@@ -31,6 +32,7 @@ data class DriverAbsenceListItem(
     val endDate: LocalDate,
     val reason: String?,
     val status: DriverAbsenceStatus,
+    val createdBy: UserId,
     val createdByRole: UserRole,
     val createdAt: Instant,
     val cancelledAt: Instant?,
@@ -64,6 +66,7 @@ class ListDriverAbsencesHandler(
                 endDate = absence.endDate,
                 reason = absence.reason,
                 status = absence.getCurrentStatus(),
+                createdBy = absence.createdBy,
                 createdByRole = absence.createdByRole,
                 createdAt = absence.createdAt,
                 cancelledAt = absence.cancelledAt,

@@ -10,6 +10,7 @@ import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.DriverAbsenceType
 import pl.sienkiewiczmaciej.routecrm.driver.absence.infrastructure.services.DriverAbsenceApplicationService
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.shared.domain.UserId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
@@ -32,7 +33,8 @@ data class CreateDriverAbsenceResult(
     val endDate: LocalDate,
     val reason: String?,
     val status: DriverAbsenceStatus,
-    val conflictingRoutesCount: Int
+    val conflictingRoutesCount: Int,
+    val createdBy: UserId,
 )
 
 @Component
@@ -71,7 +73,8 @@ class CreateDriverAbsenceHandler(
             endDate = saved.endDate,
             reason = saved.reason,
             status = saved.status,
-            conflictingRoutesCount = conflictingRoutes.size
+            conflictingRoutesCount = conflictingRoutes.size,
+            createdBy = principal.userId
         )
     }
 }
