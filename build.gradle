@@ -43,6 +43,11 @@ dependencies {
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
 
+    implementation(platform("software.amazon.awssdk:bom:2.21.0"))
+    implementation("software.amazon.awssdk:s3")
+    implementation("software.amazon.awssdk:s3-transfer-manager")
+    implementation("software.amazon.awssdk:netty-nio-client")
+
     runtimeOnly 'org.postgresql:postgresql'
 
     implementation 'com.zaxxer:HikariCP'
