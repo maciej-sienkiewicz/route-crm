@@ -36,7 +36,7 @@ class RouteAuditListener {
             "AUDIT: Schedule added to route | RouteId: {} | ScheduleId: {} | ChildId: {} | PickupStopId: {} | DropoffStopId: {} | By: {}",
             event.routeId.value,
             event.scheduleId.value,
-            event.childId.value,
+            event.child.id.value,
             event.pickupStop.id.value,
             event.dropoffStop.id.value,
             event.addedBy.value

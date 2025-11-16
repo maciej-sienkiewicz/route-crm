@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
+import pl.sienkiewiczmaciej.routecrm.absence.domain.events.AbsenceCreatedEvent
 import pl.sienkiewiczmaciej.routecrm.activity.domain.*
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteScheduleAddedEvent
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteStopExecutedEvent
@@ -27,7 +28,7 @@ class ChildActivityListener(
                 companyId = event.companyId,
                 category = ActivityCategory.CHILD,
                 activityType = ActivityType.CHILD_ASSIGNED_TO_ROUTE,
-                aggregateId = event.childId.value,
+                aggregateId = event.child.id.value,
                 aggregateType = "Child",
                 title = "Przypisano do trasy",
                 description = "Dziecko zostało przypisane do trasy",
@@ -47,7 +48,7 @@ class ChildActivityListener(
             )
 
             activityLogRepository.save(activity)
-            logger.debug("Activity log created for Child assigned to route: ${event.childId.value}")
+            logger.debug("Activity log created for Child assigned to route: ${event.child.id.value}")
         } catch (e: Exception) {
             logger.error("Failed to create activity log for Child assigned to route", e)
         }
@@ -97,6 +98,38 @@ class ChildActivityListener(
             logger.debug("Activity log created for Child stop executed: ${event.childId.value}")
         } catch (e: Exception) {
             logger.error("Failed to create activity log for Child stop executed", e)
+        }
+    }
+
+    @EventListener
+    @Async
+    fun onAbsenceCreated(event: AbsenceCreatedEvent) = runBlocking {
+        try {
+            val activity = ActivityLog.create(
+                companyId = event.companyId,
+                category = ActivityCategory.ABSENCE,
+                aggregateId = event.aggregateId,
+                activityType = ActivityType.ABSENCE_CREATED,
+                aggregateType = event.aggregateType,
+                title = "Dodano nieobecność",
+                description = "Dziecko zostało oznaczone jako nieobecne we wprowadzonym zakresie czasu.",
+                details = ActivityDetails.of(
+                    "Typ nieobecności" to event.absenceType,
+                    "Nieobecność od dnia" to event.startDate.toString(),
+                    "Nieobecność do dnia" to event.endDate.toString(),
+                    "Liczba tras, która uległa zmianie:" to event.affectedRoutes.size,
+                ),
+                performedBy = ActivityPerformer.system(),
+                metadata = ActivityMetadata.of(
+                    "routeIds" to event.affectedRoutes
+                ),
+                eventId = event.eventId
+            )
+
+            activityLogRepository.save(activity)
+            logger.debug("Activity log created for absence created: ${event.child.id.value}")
+        } catch (e: Exception) {
+            logger.error("Failed to create activity log for absence created:", e)
         }
     }
 

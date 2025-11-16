@@ -14,6 +14,7 @@ import pl.sienkiewiczmaciej.routecrm.child.domain.TransportNeeds
 import pl.sienkiewiczmaciej.routecrm.child.infrastructure.ChildJpaRepository
 import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianAssignmentJpaRepository
 import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianJpaRepository
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.DayOfWeek
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
@@ -58,6 +59,7 @@ class ListAvailableChildrenHandler(
     private val scheduleRepository: ScheduleJpaRepository,
     private val guardianAssignmentRepository: GuardianAssignmentJpaRepository,
     private val guardianRepository: GuardianJpaRepository,
+    private val routeRepository: RouteStopRepository,
     private val authService: AuthorizationService
 ) {
     @Transactional(readOnly = true)

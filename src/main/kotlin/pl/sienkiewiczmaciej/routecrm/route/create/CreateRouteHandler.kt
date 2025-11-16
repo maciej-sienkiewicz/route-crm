@@ -109,7 +109,7 @@ class CreateRouteHandler(
                     companyId = principal.companyId,
                     routeId = savedRoute.id,
                     scheduleId = it.key,
-                    childId = it.value.childId,
+                    child = context.children[it.value.childId]!!,
                     pickupStop = stopsBySchedule[it.key]!!.first { it.stopType == StopType.PICKUP },
                     dropoffStop = stopsBySchedule[it.key]!!.first { it.stopType == StopType.DROPOFF },
                     addedBy = principal.userId,

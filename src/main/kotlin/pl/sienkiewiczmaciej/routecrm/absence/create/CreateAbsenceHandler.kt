@@ -7,6 +7,7 @@ import pl.sienkiewiczmaciej.routecrm.absence.domain.*
 import pl.sienkiewiczmaciej.routecrm.absence.infrastructure.services.AbsenceApplicationService
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildRepository
+import pl.sienkiewiczmaciej.routecrm.child.domain.ChildStatus
 import pl.sienkiewiczmaciej.routecrm.child.getbyid.ChildNotFoundException
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
@@ -14,6 +15,7 @@ import pl.sienkiewiczmaciej.routecrm.schedule.getbyid.ScheduleNotFoundException
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 import java.time.LocalDate
 
@@ -45,7 +47,8 @@ class CreateAbsenceHandler(
     private val childRepository: ChildRepository,
     private val scheduleRepository: ScheduleRepository,
     private val absenceApplicationService: AbsenceApplicationService,
-    private val authService: AuthorizationService
+    private val eventPublisher: DomainEventPublisher,
+    private val authService: AuthorizationService,
 ) {
     @Transactional
     suspend fun handle(principal: UserPrincipal, command: CreateAbsenceCommand): CreateAbsenceResult {
@@ -60,7 +63,7 @@ class CreateAbsenceHandler(
         val child = childRepository.findById(command.companyId, command.childId)
             ?: throw ChildNotFoundException(command.childId)
 
-        require(child.status == pl.sienkiewiczmaciej.routecrm.child.domain.ChildStatus.ACTIVE) {
+        require(child.status == ChildStatus.ACTIVE) {
             "Cannot create absence for inactive child"
         }
 
@@ -100,6 +103,8 @@ class CreateAbsenceHandler(
         val saved = absenceRepository.save(absence)
 
         val affectedStops = absenceApplicationService.applyAbsenceToRouteStops(saved)
+        val affectedRoutes = affectedStops.map { it.routeId }
+
 
         return CreateAbsenceResult(
             id = saved.id,
@@ -110,7 +115,7 @@ class CreateAbsenceHandler(
             scheduleId = saved.scheduleId,
             reason = saved.reason,
             status = saved.status,
-            affectedRouteStops = affectedStops
+            affectedRouteStops = affectedStops.size
         )
     }
 }

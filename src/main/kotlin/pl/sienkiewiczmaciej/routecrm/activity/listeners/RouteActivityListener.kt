@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
+import pl.sienkiewiczmaciej.routecrm.absence.domain.events.AbsenceCreatedEvent
 import pl.sienkiewiczmaciej.routecrm.activity.domain.*
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.*
 
@@ -90,9 +91,12 @@ class RouteActivityListener(
                 title = "Dodano harmonogram do trasy",
                 description = "Dodano harmonogram dla dziecka do trasy",
                 performedBy = ActivityPerformer.system(),
+                details = ActivityDetails.of(
+                    "Dane dziecka" to event.child.fullName()
+                ),
                 metadata = ActivityMetadata.of(
                     "scheduleId" to event.scheduleId.value,
-                    "childId" to event.childId.value,
+                    "childId" to event.child.id.value,
                     "pickupStopId" to event.pickupStop.id.value,
                     "dropoffStopId" to event.dropoffStop.id.value
                 ),
@@ -243,6 +247,36 @@ class RouteActivityListener(
             logger.debug("Activity log created for RouteStopUpdated event: ${event.routeId.value}")
         } catch (e: Exception) {
             logger.error("Failed to create activity log for RouteStopUpdated event", e)
+        }
+    }
+
+    @EventListener
+    @Async
+    fun onAbsenceCreated(event: AbsenceCreatedEvent) = runBlocking {
+        try {
+            event.affectedRoutes
+                .forEach {
+                    val activity = ActivityLog.create(
+                        companyId = event.companyId,
+                        category = ActivityCategory.ABSENCE,
+                        activityType = ActivityType.ROUTE_STOPS_REORDERED,
+                        aggregateId = it.value,
+                        aggregateType = "Route",
+                        title = "Usunięto obiór dziecka z powodu nieobecności",
+                        description = "Wprowadzono zmiany w trasie ze względu na nieobecność: ${event.child.firstName} ${event.child.lastName}",
+                        performedBy = ActivityPerformer(
+                            userId = event.createdBy,
+                            userName = event.createdByName,
+                            userRole = null
+                        ),
+                        eventId = event.eventId
+                    )
+
+                    activityLogRepository.save(activity)
+                    logger.debug("Activity log created for RouteStopsReordered event: ${it.value}")
+                }
+        } catch (e: Exception) {
+            logger.error("Failed to create activity log for RouteStopsReordered event", e)
         }
     }
 }

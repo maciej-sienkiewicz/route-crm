@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.absence.domain.ChildAbsence
 import pl.sienkiewiczmaciej.routecrm.absence.domain.ChildAbsenceId
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStop
 import pl.sienkiewiczmaciej.routecrm.route.infrastructure.RouteStopJpaRepository
 
 @Service
@@ -17,14 +18,14 @@ class AbsenceApplicationService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Transactional
-    suspend fun applyAbsenceToRouteStops(absence: ChildAbsence): Int {
+    suspend fun applyAbsenceToRouteStops(absence: ChildAbsence): List<RouteStop> {
         logger.info("Applying absence ${absence.id.value} to route stops")
 
         val affectedStops = findAffectedRouteStops(absence)
 
         if (affectedStops.isEmpty()) {
             logger.info("No route stops found to apply absence ${absence.id.value}")
-            return 0
+            return emptyList()
         }
 
         val cancelledStops = affectedStops.map { stop ->
@@ -42,7 +43,7 @@ class AbsenceApplicationService(
         }
 
         logger.info("Applied absence ${absence.id.value} to ${cancelledStops.size} route stops")
-        return cancelledStops.size
+        return cancelledStops
     }
 
     @Transactional

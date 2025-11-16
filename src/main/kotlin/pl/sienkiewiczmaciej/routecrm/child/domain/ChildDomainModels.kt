@@ -49,6 +49,8 @@ data class Child(
 ) {
     fun age(): Int = Period.between(birthDate, LocalDate.now()).years
 
+    fun fullName(): String = "${firstName} ${lastName}"
+
     companion object {
         fun create(
             companyId: CompanyId,

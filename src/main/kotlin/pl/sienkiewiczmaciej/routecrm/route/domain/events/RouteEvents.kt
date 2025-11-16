@@ -1,6 +1,7 @@
 // route/domain/events/RouteEvents.kt
 package pl.sienkiewiczmaciej.routecrm.route.domain.events
 
+import pl.sienkiewiczmaciej.routecrm.child.domain.Child
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
@@ -36,7 +37,7 @@ data class RouteScheduleAddedEvent(
     val companyId: CompanyId,
     val routeId: RouteId,
     val scheduleId: ScheduleId,
-    val childId: ChildId,
+    val child: Child,
     val pickupStop: RouteStop,
     val dropoffStop: RouteStop,
     val addedBy: UserId,

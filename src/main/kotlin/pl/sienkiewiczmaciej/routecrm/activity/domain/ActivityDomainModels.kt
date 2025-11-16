@@ -21,7 +21,8 @@ enum class ActivityCategory {
     DRIVER,
     VEHICLE,
     SCHEDULE,
-    SYSTEM
+    SYSTEM,
+    ABSENCE
 }
 
 enum class ActivityType {
@@ -57,6 +58,9 @@ enum class ActivityType {
     SCHEDULE_CREATED,
     SCHEDULE_UPDATED,
     SCHEDULE_DELETED,
+
+    // Absences
+    ABSENCE_CREATED,
 
     // Driver activities
     DRIVER_CREATED,

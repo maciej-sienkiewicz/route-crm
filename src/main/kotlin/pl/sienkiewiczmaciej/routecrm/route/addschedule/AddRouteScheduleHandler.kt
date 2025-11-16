@@ -94,7 +94,7 @@ class AddRouteScheduleHandler(
                 aggregateId = command.routeId.value,
                 routeId = command.routeId,
                 scheduleId = command.scheduleId,
-                childId = command.childId,
+                child = context.child,
                 pickupStop = savedPickup,
                 dropoffStop = savedDropoff,
                 addedBy = principal.userId,
