@@ -95,7 +95,8 @@ data class RouteScheduleDeletedEvent(
     val companyId: CompanyId,
     val routeId: RouteId,
     val scheduleId: ScheduleId,
-    val deletedBy: UserId
+    val deletedBy: UserId,
+    val child: Child
 ) : DomainEvent
 
 data class RouteStopsReorderedEvent(

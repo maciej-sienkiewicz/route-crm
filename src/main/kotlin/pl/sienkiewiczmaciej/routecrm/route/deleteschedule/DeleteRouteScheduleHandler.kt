@@ -58,7 +58,8 @@ class DeleteRouteScheduleHandler(
                 routeId = command.routeId,
                 scheduleId = command.scheduleId,
                 deletedBy = principal.userId,
-                companyId = principal.companyId
+                companyId = principal.companyId,
+                child = context.child
             )
         )
     }
