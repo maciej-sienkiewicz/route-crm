@@ -19,6 +19,7 @@ import pl.sienkiewiczmaciej.routecrm.schedule.update.UpdateScheduleCommand
 import pl.sienkiewiczmaciej.routecrm.schedule.update.UpdateScheduleResult
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 
 @JsonIgnoreProperties
@@ -276,5 +277,53 @@ data class SchedulesListResponse(
         fun from(schedules: List<ScheduleListItem>) = SchedulesListResponse(
             schedules = schedules.map { ScheduleListResponse.from(it) }
         )
+    }
+}
+
+data class UnassignedScheduleItem(
+    val scheduleId: String,
+    val childId: String,
+    val childFirstName: String,
+    val childLastName: String,
+    val scheduleName: String,
+    val days: Set<DayOfWeek>,
+    @JsonFormat(pattern = "HH:mm")
+    val pickupTime: LocalTime,
+    val pickupAddress: ScheduleAddressResponse,
+    @JsonFormat(pattern = "HH:mm")
+    val dropoffTime: LocalTime,
+    val dropoffAddress: ScheduleAddressResponse,
+    val specialInstructions: String?
+) {
+    companion object {
+        fun from(item: pl.sienkiewiczmaciej.routecrm.schedule.findunassigned.UnassignedScheduleItem) =
+            UnassignedScheduleItem(
+                scheduleId = item.scheduleId.value,
+                childId = item.childId.value,
+                childFirstName = item.childFirstName,
+                childLastName = item.childLastName,
+                scheduleName = item.scheduleName,
+                days = item.days,
+                pickupTime = item.pickupTime,
+                pickupAddress = ScheduleAddressResponse.from(item.pickupAddress),
+                dropoffTime = item.dropoffTime,
+                dropoffAddress = ScheduleAddressResponse.from(item.dropoffAddress),
+                specialInstructions = item.specialInstructions
+            )
+    }
+}
+
+data class UnassignedSchedulesResponse(
+    val date: LocalDate,
+    val schedules: List<UnassignedScheduleItem>,
+    val totalCount: Int
+) {
+    companion object {
+        fun from(result: pl.sienkiewiczmaciej.routecrm.schedule.findunassigned.UnassignedSchedulesResult) =
+            UnassignedSchedulesResponse(
+                date = result.date,
+                schedules = result.schedules.map { UnassignedScheduleItem.from(it) },
+                totalCount = result.schedules.size
+            )
     }
 }
