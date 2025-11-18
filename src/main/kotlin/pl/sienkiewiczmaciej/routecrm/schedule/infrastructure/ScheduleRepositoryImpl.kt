@@ -9,6 +9,7 @@ import pl.sienkiewiczmaciej.routecrm.schedule.domain.Schedule
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import java.time.LocalDate
 
 @Repository
 class ScheduleRepositoryImpl(
@@ -43,5 +44,27 @@ class ScheduleRepositoryImpl(
                 ?: return@withContext
             jpaRepository.delete(entity)
         }
+    }
+
+    override suspend fun findUnassignedForDate(
+        companyId: CompanyId,
+        date: LocalDate
+    ): List<Schedule> = withContext(Dispatchers.IO) {
+        // Convert java.time.DayOfWeek to our domain DayOfWeek enum name
+        val dayOfWeekString = when (date.dayOfWeek) {
+            java.time.DayOfWeek.MONDAY -> "MONDAY"
+            java.time.DayOfWeek.TUESDAY -> "TUESDAY"
+            java.time.DayOfWeek.WEDNESDAY -> "WEDNESDAY"
+            java.time.DayOfWeek.THURSDAY -> "THURSDAY"
+            java.time.DayOfWeek.FRIDAY -> "FRIDAY"
+            java.time.DayOfWeek.SATURDAY -> "SATURDAY"
+            java.time.DayOfWeek.SUNDAY -> "SUNDAY"
+        }
+
+        jpaRepository.findUnassignedSchedulesForDate(
+            companyId.value,
+            date,
+            dayOfWeekString
+        ).map { it.toDomain() }
     }
 }
