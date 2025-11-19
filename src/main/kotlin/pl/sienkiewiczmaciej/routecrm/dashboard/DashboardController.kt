@@ -14,6 +14,7 @@ import pl.sienkiewiczmaciej.routecrm.dashboard.summary.GetDashboardSummaryHandle
 import pl.sienkiewiczmaciej.routecrm.dashboard.summary.GetDashboardSummaryQuery
 import pl.sienkiewiczmaciej.routecrm.dashboard.trends.GetDashboardTrendsHandler
 import pl.sienkiewiczmaciej.routecrm.dashboard.trends.GetDashboardTrendsQuery
+import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
 import pl.sienkiewiczmaciej.routecrm.shared.api.BaseController
 import java.time.LocalDate
 
@@ -100,7 +101,8 @@ data class DashboardTrendsResponse(
 class DashboardController(
     private val summaryHandler: GetDashboardSummaryHandler,
     private val alertsHandler: GetDashboardAlertsHandler,
-    private val trendsHandler: GetDashboardTrendsHandler
+    private val trendsHandler: GetDashboardTrendsHandler,
+    private val scheduleRepository: ScheduleRepository,
 ) : BaseController() {
 
     @GetMapping("/summary")

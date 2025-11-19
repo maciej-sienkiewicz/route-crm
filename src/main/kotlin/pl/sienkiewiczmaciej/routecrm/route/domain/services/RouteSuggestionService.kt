@@ -1,4 +1,4 @@
-package pl.sienkiewiczmaciej.routecrm.route.suggestion
+package pl.sienkiewiczmaciej.routecrm.route.domain.services
 
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.LineString
