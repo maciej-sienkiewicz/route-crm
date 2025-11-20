@@ -805,3 +805,87 @@ data class ChildStopInfoResponse(
         )
     }
 }
+
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/RouteDTOs.kt
+// Dodaj na końcu istniejącego pliku:
+
+data class RouteSuggestionResponse(
+    val id: String,
+    val companyId: String,
+    val routeName: String,
+    val date: LocalDate,
+    val status: RouteStatus,
+    val driver: DriverSimpleResponse,
+    val vehicle: VehicleSimpleResponse,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedStartTime: LocalTime,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedEndTime: LocalTime,
+    val actualStartTime: Instant?,
+    val actualEndTime: Instant?,
+    val stops: List<RouteStopSuggestionResponse>
+) {
+    companion object {
+        fun from(detail: pl.sienkiewiczmaciej.routecrm.route.suggestions.RouteSuggestionDetail) = RouteSuggestionResponse(
+            id = detail.id.value,
+            companyId = detail.companyId.value,
+            routeName = detail.routeName,
+            date = detail.date,
+            status = detail.status,
+            driver = DriverSimpleResponse(
+                id = detail.driver.id.value,
+                firstName = detail.driver.firstName,
+                lastName = detail.driver.lastName
+            ),
+            vehicle = VehicleSimpleResponse(
+                id = detail.vehicle.id.value,
+                registrationNumber = detail.vehicle.registrationNumber,
+                model = detail.vehicle.model
+            ),
+            estimatedStartTime = detail.estimatedStartTime,
+            estimatedEndTime = detail.estimatedEndTime,
+            actualStartTime = detail.actualStartTime,
+            actualEndTime = detail.actualEndTime,
+            stops = detail.stops.map { RouteStopSuggestionResponse.from(it) }
+        )
+    }
+}
+
+data class RouteStopSuggestionResponse(
+    val id: String,
+    val stopOrder: Int,
+    val stopType: StopType,
+    val childId: String,
+    val childFirstName: String,
+    val childLastName: String,
+    val scheduleId: String,
+    @JsonFormat(pattern = "HH:mm")
+    val estimatedTime: LocalTime,
+    val address: ScheduleAddressResponse,
+    val isCancelled: Boolean,
+    val actualTime: Instant?,
+    val executionStatus: ExecutionStatus?,
+    val guardian: GuardianSimpleResponse
+) {
+    companion object {
+        fun from(stop: pl.sienkiewiczmaciej.routecrm.route.suggestions.RouteStopSimple) = RouteStopSuggestionResponse(
+            id = stop.id.value,
+            stopOrder = stop.stopOrder,
+            stopType = stop.stopType,
+            childId = stop.childId.value,
+            childFirstName = stop.childFirstName,
+            childLastName = stop.childLastName,
+            scheduleId = stop.scheduleId.value,
+            estimatedTime = stop.estimatedTime,
+            address = ScheduleAddressResponse.from(stop.address),
+            isCancelled = stop.isCancelled,
+            actualTime = stop.actualTime,
+            executionStatus = stop.executionStatus,
+            guardian = GuardianSimpleResponse(
+                firstName = stop.guardian.firstName,
+                lastName = stop.guardian.lastName,
+                phone = stop.guardian.phone
+            )
+        )
+    }
+}

@@ -7,6 +7,7 @@ import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.turf.misc.NearestPointOnLineProps
 import org.maplibre.spatialk.turf.misc.nearestPointTo
 import org.maplibre.spatialk.units.International.Meters
+import org.springframework.stereotype.Component
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStop
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.Schedule
@@ -16,6 +17,7 @@ data class RouteStops(
     val stops: List<RouteStop>
 )
 
+@Component
 class RouteSuggestionService() {
     fun findSuggestions(routes: List<RouteStops>, newSchedule: Schedule): List<RouteId> {
 

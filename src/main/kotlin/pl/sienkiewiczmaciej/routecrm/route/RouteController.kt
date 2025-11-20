@@ -2,6 +2,8 @@
 package pl.sienkiewiczmaciej.routecrm.route
 
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.web.PageableDefault
@@ -32,6 +34,7 @@ import pl.sienkiewiczmaciej.routecrm.route.list.ListRoutesQuery
 import pl.sienkiewiczmaciej.routecrm.route.note.AddRouteNoteCommand
 import pl.sienkiewiczmaciej.routecrm.route.note.AddRouteNoteHandler
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsHandler
+import pl.sienkiewiczmaciej.routecrm.route.suggestions.GetRouteSuggestionsHandler
 import pl.sienkiewiczmaciej.routecrm.route.upcoming.GetUpcomingRoutesHandler
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateRouteStatusCommand
 import pl.sienkiewiczmaciej.routecrm.route.updatestatus.UpdateRouteStatusHandler
@@ -57,7 +60,8 @@ class RouteController(
     private val deleteHandler: DeleteRouteHandler,
     private val availableChildrenHandler: ListAvailableChildrenHandler,
     private val getRouteHistoryHandler: GetRouteHistoryHandler,
-    private val getUpcomingRoutesHandler: GetUpcomingRoutesHandler
+    private val getUpcomingRoutesHandler: GetUpcomingRoutesHandler,
+    private val getRouteSuggestionsHandler: GetRouteSuggestionsHandler,
 ) : BaseController() {
 
     @GetMapping("/available-children")
@@ -292,5 +296,22 @@ class RouteController(
         )
         return getUpcomingRoutesHandler.handle(principal, query)
             .map { UpcomingRouteResponse.from(it) }
+    }
+
+    @GetMapping("/suggestions")
+    suspend fun getRouteSuggestions(
+        @RequestParam scheduleId: String,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) date: LocalDate,
+        @RequestParam(defaultValue = "5") @Min(1) @Max(50) maxResults: Int
+    ): List<RouteSuggestionResponse> {
+        val principal = getPrincipal()
+        val query = pl.sienkiewiczmaciej.routecrm.route.suggestions.GetRouteSuggestionsQuery(
+            companyId = principal.companyId,
+            scheduleId = ScheduleId.from(scheduleId),
+            date = date,
+            maxResults = maxResults
+        )
+        return getRouteSuggestionsHandler.handle(principal, query)
+            .map { RouteSuggestionResponse.from(it) }
     }
 }
