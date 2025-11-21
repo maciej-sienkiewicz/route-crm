@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/domain/services/SeriesConflictResolver.kt
+// routeseries/domain/services/SeriesConflictResolver.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries.domain.services
 
 import org.springframework.stereotype.Component
@@ -12,45 +12,15 @@ import java.time.LocalDate
 sealed class ConflictResolution {
     data class NoConflict(
         val effectiveFrom: LocalDate,
-        val effectiveTo: LocalDate?,
-        val note: String? = null
+        val effectiveTo: LocalDate?
     ) : ConflictResolution()
 
     data class Conflict(
         val requestedFrom: LocalDate,
         val limitedTo: LocalDate,
         val reason: String,
-        val existingSchedule: RouteSeriesSchedule,
-        val message: String
-    ) : ConflictResolution() {
-        companion object {
-            fun create(
-                requestedFrom: LocalDate,
-                existingSchedule: RouteSeriesSchedule
-            ): Conflict {
-                val limitedTo = existingSchedule.validFrom.minusDays(1)
-                val message = buildMessage(requestedFrom, limitedTo, existingSchedule)
-
-                return Conflict(
-                    requestedFrom = requestedFrom,
-                    limitedTo = limitedTo,
-                    reason = "Schedule already in series from ${existingSchedule.validFrom}",
-                    existingSchedule = existingSchedule,
-                    message = message
-                )
-            }
-
-            private fun buildMessage(
-                from: LocalDate,
-                to: LocalDate,
-                existing: RouteSeriesSchedule
-            ): String {
-                return "Od dnia ${existing.validFrom} pojawiły się zmiany. " +
-                        "Możesz wprowadzić zmiany od $from do $to. " +
-                        "Czy zaakceptować taką zmianę?"
-            }
-        }
-    }
+        val existingSchedule: RouteSeriesSchedule
+    ) : ConflictResolution()
 }
 
 @Component
@@ -81,42 +51,17 @@ class SeriesConflictResolver(
         if (requestedFrom >= existingSchedule.validFrom) {
             return ConflictResolution.NoConflict(
                 effectiveFrom = requestedFrom,
-                effectiveTo = null,
-                note = "Schedule already in series from ${existingSchedule.validFrom}"
+                effectiveTo = null
             )
         }
 
-        return ConflictResolution.Conflict.create(requestedFrom, existingSchedule)
-    }
+        val limitedTo = existingSchedule.validFrom.minusDays(1)
 
-    suspend fun resolveRemoveChildConflict(
-        companyId: CompanyId,
-        seriesId: RouteSeriesId,
-        scheduleId: ScheduleId,
-        requestedFrom: LocalDate
-    ): ConflictResolution {
-
-        val existingSchedule = scheduleRepository.findBySeriesAndSchedule(
-            companyId = companyId,
-            seriesId = seriesId,
-            scheduleId = scheduleId
-        ) ?: throw IllegalArgumentException("Schedule not found in series")
-
-        if (requestedFrom <= existingSchedule.validFrom) {
-            throw IllegalArgumentException(
-                "Cannot remove schedule before it was added (${existingSchedule.validFrom})"
-            )
-        }
-
-        if (existingSchedule.validTo != null && requestedFrom > existingSchedule.validTo) {
-            throw IllegalArgumentException(
-                "Schedule already removed on ${existingSchedule.validTo}"
-            )
-        }
-
-        return ConflictResolution.NoConflict(
-            effectiveFrom = requestedFrom,
-            effectiveTo = existingSchedule.validTo
+        return ConflictResolution.Conflict(
+            requestedFrom = requestedFrom,
+            limitedTo = limitedTo,
+            reason = "Schedule already in series from ${existingSchedule.validFrom}",
+            existingSchedule = existingSchedule
         )
     }
 }

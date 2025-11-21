@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/RouteSeriesDTOs.kt
+// routeseries/RouteSeriesDTOs.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries
 
 import com.fasterxml.jackson.annotation.JsonFormat
@@ -25,7 +25,7 @@ import java.time.LocalTime
 
 data class CreateRouteSeriesFromRouteRequest(
     @field:NotBlank val seriesName: String,
-    @field:NotNull @field:Min(1) @field:Max(4) val recurrenceInterval: Int,  // 1-4 tygodnie
+    @field:NotNull @field:Min(1) @field:Max(4) val recurrenceInterval: Int,
     @field:NotNull val startDate: LocalDate,
     val endDate: LocalDate?
 ) {
@@ -68,7 +68,7 @@ data class RouteSeriesResponse(
     @JsonFormat(pattern = "HH:mm")
     val estimatedEndTime: LocalTime,
     val recurrenceInterval: Int,
-    val dayOfWeek: String,  // "MONDAY", "WEDNESDAY", etc.
+    val dayOfWeek: String,
     val startDate: LocalDate,
     val endDate: LocalDate?,
     val status: RouteSeriesStatus,
@@ -148,14 +148,17 @@ data class RemoveChildFromSeriesRequest(
     @field:NotNull val effectiveFrom: LocalDate,
     val cancelExistingStops: Boolean = true
 ) {
-    fun toCommand(companyId: CompanyId, seriesId: RouteSeriesId, scheduleId: pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId) =
-        RemoveChildFromRouteSeriesCommand(
-            companyId = companyId,
-            seriesId = seriesId,
-            scheduleId = scheduleId,
-            effectiveFrom = effectiveFrom,
-            cancelExistingStops = cancelExistingStops
-        )
+    fun toCommand(
+        companyId: CompanyId,
+        seriesId: RouteSeriesId,
+        scheduleId: pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
+    ) = RemoveChildFromRouteSeriesCommand(
+        companyId = companyId,
+        seriesId = seriesId,
+        scheduleId = scheduleId,
+        effectiveFrom = effectiveFrom,
+        cancelExistingStops = cancelExistingStops
+    )
 }
 
 data class RemoveChildFromSeriesResponse(

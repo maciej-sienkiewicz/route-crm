@@ -120,9 +120,9 @@ class CreateRouteSeriesFromRouteHandler(
         seriesScheduleRepository.saveAll(seriesSchedules)
 
         val materializationResult = materializationService.materializeForDateRange(
+            companyId = principal.companyId,
             dateRange = command.startDate..command.startDate.plusDays(14),
             forceRegenerate = false,
-            principal.companyId
         )
 
         return CreateSeriesFromRouteResult(

@@ -1,9 +1,12 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/infrastructure/RouteSeriesEntities.kt
+// routeseries/infrastructure/RouteSeriesEntities.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries.infrastructure
 
 import jakarta.persistence.*
+import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
+import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserId
 import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
@@ -47,7 +50,7 @@ class RouteSeriesEntity(
     val estimatedEndTime: LocalTime,
 
     @Column(name = "recurrence_interval", nullable = false)
-    val recurrenceInterval: Int,  // ← ZMIENIONE: zamiast recurrence_type + recurrence_days
+    val recurrenceInterval: Int,
 
     @Column(name = "start_date", nullable = false)
     val startDate: LocalDate,
@@ -164,10 +167,10 @@ class RouteSeriesScheduleEntity(
 ) {
     fun toDomain() = RouteSeriesSchedule(
         id = RouteSeriesScheduleId(id),
-        companyId = pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId(companyId),
+        companyId = CompanyId(companyId),
         seriesId = RouteSeriesId(seriesId),
-        scheduleId = pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId(scheduleId),
-        childId = pl.sienkiewiczmaciej.routecrm.child.domain.ChildId(childId),
+        scheduleId = ScheduleId(scheduleId),
+        childId = ChildId(childId),
         pickupStopOrder = pickupStopOrder,
         dropoffStopOrder = dropoffStopOrder,
         validFrom = validFrom,
@@ -232,10 +235,10 @@ class RouteSeriesOccurrenceEntity(
 ) {
     fun toDomain() = RouteSeriesOccurrence(
         id = RouteSeriesOccurrenceId(id),
-        companyId = pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId(companyId),
+        companyId = CompanyId(companyId),
         seriesId = RouteSeriesId(seriesId),
         occurrenceDate = occurrenceDate,
-        routeId = routeId?.let { pl.sienkiewiczmaciej.routecrm.route.domain.RouteId(it) },
+        routeId = routeId?.let { RouteId(it) },
         status = status,
         materializedAt = materializedAt
     )

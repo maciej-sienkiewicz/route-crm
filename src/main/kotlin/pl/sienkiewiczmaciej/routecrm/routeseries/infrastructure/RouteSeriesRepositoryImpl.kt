@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/infrastructure/RouteSeriesRepositoryImpl.kt
+// routeseries/infrastructure/RouteSeriesRepositoriesImpl.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries.infrastructure
 
 import kotlinx.coroutines.Dispatchers

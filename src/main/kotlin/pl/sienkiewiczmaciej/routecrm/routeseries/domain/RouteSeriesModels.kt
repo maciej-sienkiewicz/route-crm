@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/domain/RouteSeriesModels.kt
+// routeseries/domain/RouteSeriesModels.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries.domain
 
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
@@ -37,16 +37,9 @@ value class RouteSeriesOccurrenceId(val value: String) {
     }
 }
 
-
 enum class RouteSeriesStatus {
     ACTIVE,
-    PAUSED,
-    CANCELLED,
-    COMPLETED
-}
-
-enum class RecurrenceType {
-    WEEKLY
+    CANCELLED
 }
 
 enum class OccurrenceStatus {
@@ -91,7 +84,7 @@ data class RouteSeries(
             require(seriesName.length <= 255) { "Series name too long" }
             require(routeNameTemplate.isNotBlank()) { "Route name template is required" }
             require(recurrenceInterval in 1..4) {
-                "Recurrence interval must be 1, 2, 3, or 4 weeks"
+                "Recurrence interval must be between 1 and 4 weeks"
             }
             require(estimatedEndTime.isAfter(estimatedStartTime)) {
                 "End time must be after start time"
@@ -119,23 +112,11 @@ data class RouteSeries(
         }
     }
 
-    /**
-     * Checks if this series should occur on the given date.
-     *
-     * Logic:
-     * - Must be same day of week as startDate
-     * - Must be N weeks after startDate (where N % interval == 0)
-     */
     fun matchesRecurrencePattern(date: LocalDate): Boolean {
         if (date.isBefore(startDate)) return false
         if (endDate != null && date.isAfter(endDate)) return false
+        if (date.dayOfWeek != startDate.dayOfWeek) return false
 
-        // Must be same day of week
-        if (date.dayOfWeek != startDate.dayOfWeek) {
-            return false
-        }
-
-        // Check interval
         val weeksSinceStart = java.time.temporal.ChronoUnit.WEEKS.between(startDate, date)
         return weeksSinceStart % recurrenceInterval == 0L
     }
@@ -145,30 +126,18 @@ data class RouteSeries(
     }
 
     fun cancel(userId: UserId, reason: String): RouteSeries {
-        require(status == RouteSeriesStatus.ACTIVE || status == RouteSeriesStatus.PAUSED) {
-            "Can only cancel ACTIVE or PAUSED series"
+        require(status == RouteSeriesStatus.ACTIVE) {
+            "Can only cancel ACTIVE series"
         }
+        require(reason.isNotBlank()) { "Cancellation reason is required" }
+        require(reason.length <= 5000) { "Cancellation reason too long" }
 
         return copy(
             status = RouteSeriesStatus.CANCELLED,
             cancelledAt = Instant.now(),
             cancelledBy = userId,
-            cancellationReason = reason
+            cancellationReason = reason.trim()
         )
-    }
-
-    fun pause(): RouteSeries {
-        require(status == RouteSeriesStatus.ACTIVE) {
-            "Can only pause ACTIVE series"
-        }
-        return copy(status = RouteSeriesStatus.PAUSED)
-    }
-
-    fun resume(): RouteSeries {
-        require(status == RouteSeriesStatus.PAUSED) {
-            "Can only resume PAUSED series"
-        }
-        return copy(status = RouteSeriesStatus.ACTIVE)
     }
 }
 

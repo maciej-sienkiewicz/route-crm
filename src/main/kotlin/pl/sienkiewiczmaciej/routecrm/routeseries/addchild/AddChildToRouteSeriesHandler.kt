@@ -1,49 +1,25 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/addchild/AddChildToRouteSeriesHandler.kt
+// routeseries/addchild/AddChildToRouteSeriesHandler.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries.addchild
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.events.RouteSeriesChildAddedEvent
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.services.ConflictResolution
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.services.SeriesConflictResolver
-import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
-import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
-import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
-import java.time.LocalDate
-
-data class AddChildToRouteSeriesCommand(
-    val companyId: CompanyId,
-    val seriesId: RouteSeriesId,
-    val scheduleId: ScheduleId,
-    val childId: ChildId,
-    val pickupStopOrder: Int,
-    val dropoffStopOrder: Int,
-    val effectiveFrom: LocalDate,
-    val effectiveTo: LocalDate? = null
-)
-
-data class AddChildToSeriesResult(
-    val seriesId: RouteSeriesId,
-    val scheduleId: ScheduleId,
-    val effectiveFrom: LocalDate,
-    val effectiveTo: LocalDate?,
-    val existingRoutesUpdated: Int,
-    val conflictResolved: Boolean = false
-)
 
 @Component
 class AddChildToRouteSeriesHandler(
-    private val routeSeriesRepository: RouteSeriesRepository,
+    private val validatorComposite: AddChildValidatorComposite,
     private val seriesScheduleRepository: RouteSeriesScheduleRepository,
-    private val scheduleRepository: ScheduleRepository,
-    private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
     private val conflictResolver: SeriesConflictResolver,
+    private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -54,19 +30,7 @@ class AddChildToRouteSeriesHandler(
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR)
         authService.requireSameCompany(principal.companyId, command.companyId)
 
-        val series = routeSeriesRepository.findById(command.companyId, command.seriesId)
-            ?: throw RouteSeriesNotFoundException(command.seriesId)
-
-        require(series.status == RouteSeriesStatus.ACTIVE) {
-            "Cannot add child to series with status ${series.status}"
-        }
-
-        val schedule = scheduleRepository.findById(command.companyId, command.scheduleId)
-            ?: throw IllegalArgumentException("Schedule ${command.scheduleId.value} not found")
-
-        require(schedule.childId == command.childId) {
-            "Schedule does not belong to child ${command.childId.value}"
-        }
+        val context = validatorComposite.validate(command)
 
         val conflictResolution = conflictResolver.resolveAddChildConflict(
             companyId = command.companyId,
@@ -77,11 +41,7 @@ class AddChildToRouteSeriesHandler(
 
         val (effectiveFrom, effectiveTo, conflictResolved) = when (conflictResolution) {
             is ConflictResolution.NoConflict -> {
-                Triple(
-                    conflictResolution.effectiveFrom,
-                    command.effectiveTo,
-                    false
-                )
+                Triple(conflictResolution.effectiveFrom, command.effectiveTo, false)
             }
             is ConflictResolution.Conflict -> {
                 Triple(
@@ -105,28 +65,20 @@ class AddChildToRouteSeriesHandler(
 
         seriesScheduleRepository.save(seriesSchedule)
 
-        val affectedRoutes = routeRepository.findBySeries(
-            companyId = command.companyId,
-            seriesId = command.seriesId,
-            fromDate = effectiveFrom,
-            statuses = setOf(RouteStatus.PLANNED)
-        )
-
         var routesUpdated = 0
 
-        for (route in affectedRoutes) {
+        for (route in context.affectedRoutes) {
             if (effectiveTo != null && route.date.isAfter(effectiveTo)) {
                 continue
             }
 
             val existingStops = stopRepository.findByRoute(
                 companyId = command.companyId,
-                routeId = route.id
+                routeId = route.id,
+                includeCancelled = false
             )
-            val childAlreadyInRoute = existingStops.any {
-                it.childId == command.childId && !it.isCancelled
-            }
 
+            val childAlreadyInRoute = existingStops.any { it.childId == command.childId }
             if (!childAlreadyInRoute) {
                 val pickupStop = RouteStop.create(
                     companyId = command.companyId,
@@ -135,8 +87,8 @@ class AddChildToRouteSeriesHandler(
                     stopType = StopType.PICKUP,
                     childId = command.childId,
                     scheduleId = command.scheduleId,
-                    estimatedTime = schedule.pickupTime,
-                    address = schedule.pickupAddress
+                    estimatedTime = context.schedule.pickupTime,
+                    address = context.schedule.pickupAddress
                 )
 
                 val dropoffStop = RouteStop.create(
@@ -146,8 +98,8 @@ class AddChildToRouteSeriesHandler(
                     stopType = StopType.DROPOFF,
                     childId = command.childId,
                     scheduleId = command.scheduleId,
-                    estimatedTime = schedule.dropoffTime,
-                    address = schedule.dropoffAddress
+                    estimatedTime = context.schedule.dropoffTime,
+                    address = context.schedule.dropoffAddress
                 )
 
                 val reorderedStops = reorderStopsForInsertion(
@@ -166,6 +118,19 @@ class AddChildToRouteSeriesHandler(
                 routesUpdated++
             }
         }
+
+        eventPublisher.publish(
+            RouteSeriesChildAddedEvent(
+                aggregateId = command.seriesId.value,
+                seriesId = command.seriesId,
+                companyId = command.companyId,
+                scheduleId = command.scheduleId,
+                childId = command.childId,
+                validFrom = effectiveFrom,
+                validTo = effectiveTo,
+                addedBy = principal.userId
+            )
+        )
 
         return AddChildToSeriesResult(
             seriesId = command.seriesId,
@@ -186,15 +151,10 @@ class AddChildToRouteSeriesHandler(
             when {
                 stop.stopOrder >= newDropoffOrder ->
                     stop.updateOrder(stop.stopOrder + 2)
-
                 stop.stopOrder >= newPickupOrder && stop.stopOrder < newDropoffOrder ->
                     stop.updateOrder(stop.stopOrder + 1)
-
                 else -> null
             }
         }
     }
 }
-
-class RouteSeriesNotFoundException(id: RouteSeriesId) :
-    RuntimeException("Route series ${id.value} not found")

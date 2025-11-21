@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/domain/services/RouteSeriesMaterializationService.kt
+// routeseries/domain/services/RouteSeriesMaterializationService.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries.domain.services
 
 import org.slf4j.LoggerFactory
@@ -9,7 +9,6 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
-import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import java.time.LocalDate
 
 data class MaterializationResult(
@@ -33,18 +32,17 @@ class RouteSeriesMaterializationService(
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
     private val occurrenceRepository: RouteSeriesOccurrenceRepository,
-    private val absenceConflictChecker: AbsenceConflictChecker,
-    private val eventPublisher: DomainEventPublisher
+    private val absenceConflictChecker: AbsenceConflictChecker
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     suspend fun materializeForDateRange(
+        companyId: CompanyId,
         dateRange: ClosedRange<LocalDate>,
-        forceRegenerate: Boolean = false,
-        companyId: CompanyId = CompanyId("Dummy")
+        forceRegenerate: Boolean = false
     ): MaterializationResult {
-        logger.info("Materializing routes for range $dateRange")
+        logger.info("Materializing routes for company ${companyId.value} in range $dateRange")
 
         var created = 0
         var skipped = 0
@@ -56,7 +54,7 @@ class RouteSeriesMaterializationService(
             endDate = dateRange.endInclusive
         )
 
-        logger.info("Found ${activeSeries.size} active series")
+        logger.info("Found ${activeSeries.size} active series for company ${companyId.value}")
 
         for (series in activeSeries) {
             val occurrenceDates = calculateOccurrences(series, dateRange)
@@ -72,19 +70,12 @@ class RouteSeriesMaterializationService(
             }
         }
 
-        logger.info("Materialization complete: created=$created, skipped=$skipped, updated=$updated")
+        logger.info(
+            "Materialization complete for ${companyId.value}: " +
+                    "created=$created, skipped=$skipped, updated=$updated"
+        )
 
         return MaterializationResult(created, skipped, updated, dateRange)
-    }
-
-    suspend fun ensureMaterializedForDate(
-        companyId: CompanyId,
-        date: LocalDate
-    ) {
-        materializeForDateRange(
-            dateRange = date..date,
-            forceRegenerate = false
-        )
     }
 
     private fun calculateOccurrences(
@@ -93,10 +84,10 @@ class RouteSeriesMaterializationService(
     ): List<LocalDate> {
         val occurrences = mutableListOf<LocalDate>()
         var currentDate = maxOf(series.startDate, dateRange.start)
-        val endDate = minOfOrNull(
-            series.endDate ?: LocalDate.MAX,
+        val endDate = listOfNotNull(
+            series.endDate,
             dateRange.endInclusive
-        ) ?: dateRange.endInclusive
+        ).minOrNull() ?: dateRange.endInclusive
 
         while (!currentDate.isAfter(endDate)) {
             if (series.matchesRecurrencePattern(currentDate)) {
@@ -135,7 +126,7 @@ class RouteSeriesMaterializationService(
         )
 
         if (schedules.isEmpty()) {
-            logger.warn("No schedules for series ${series.id} on $date")
+            logger.debug("No schedules for series ${series.id.value} on $date")
             return MaterializationOutcome.Skipped(null)
         }
 
@@ -150,7 +141,7 @@ class RouteSeriesMaterializationService(
         }
 
         if (schedulesWithoutAbsences.isEmpty()) {
-            logger.info("All schedules have absences on $date, skipping materialization")
+            logger.debug("All schedules have absences on $date for series ${series.id.value}")
             return MaterializationOutcome.Skipped(null)
         }
 
@@ -161,7 +152,9 @@ class RouteSeriesMaterializationService(
             driverId = series.driverId,
             vehicleId = series.vehicleId,
             estimatedStartTime = series.estimatedStartTime,
-            estimatedEndTime = series.estimatedEndTime
+            estimatedEndTime = series.estimatedEndTime,
+            seriesId = series.id,
+            seriesOccurrenceDate = date
         )
 
         val savedRoute = routeRepository.save(route)
@@ -212,9 +205,5 @@ class RouteSeriesMaterializationService(
         } else {
             MaterializationOutcome.Created(savedRoute.id)
         }
-    }
-
-    private fun minOfOrNull(a: LocalDate, b: LocalDate): LocalDate? {
-        return if (a == LocalDate.MAX || b == LocalDate.MAX) null else minOf(a, b)
     }
 }

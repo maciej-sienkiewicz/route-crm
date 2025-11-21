@@ -1,4 +1,4 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/RouteSeriesController.kt
+// routeseries/RouteSeriesController.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries
 
 import jakarta.validation.Valid
@@ -12,7 +12,8 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.routeseries.addchild.AddChildToRouteSeriesHandler
 import pl.sienkiewiczmaciej.routecrm.routeseries.cancel.CancelRouteSeriesHandler
 import pl.sienkiewiczmaciej.routecrm.routeseries.create.CreateRouteSeriesFromRouteHandler
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesStatus
 import pl.sienkiewiczmaciej.routecrm.routeseries.getbyid.GetRouteSeriesHandler
 import pl.sienkiewiczmaciej.routecrm.routeseries.getbyid.GetRouteSeriesQuery
 import pl.sienkiewiczmaciej.routecrm.routeseries.list.ListRouteSeriesHandler
@@ -38,12 +39,7 @@ class RouteSeriesController(
         @Valid @RequestBody request: CreateRouteSeriesFromRouteRequest
     ): ResponseEntity<CreateRouteSeriesFromRouteResponse> {
         val principal = getPrincipal()
-
-        val command = request.toCommand(
-            principal.companyId,
-            RouteId.from(routeId)
-        )
-
+        val command = request.toCommand(principal.companyId, RouteId.from(routeId))
         val result = createFromRouteHandler.handle(principal, command)
 
         return ResponseEntity
@@ -53,11 +49,10 @@ class RouteSeriesController(
 
     @GetMapping
     suspend fun list(
-        @RequestParam status: RouteSeriesStatus?,
+        @RequestParam(required = false) status: RouteSeriesStatus?,
         @PageableDefault(size = 20, sort = ["createdAt"]) pageable: Pageable
     ): Page<RouteSeriesListResponse> {
         val principal = getPrincipal()
-
         val query = ListRouteSeriesQuery(
             companyId = principal.companyId,
             status = status,
@@ -68,11 +63,8 @@ class RouteSeriesController(
     }
 
     @GetMapping("/{seriesId}")
-    suspend fun getById(
-        @PathVariable seriesId: String
-    ): RouteSeriesResponse {
+    suspend fun getById(@PathVariable seriesId: String): RouteSeriesResponse {
         val principal = getPrincipal()
-
         val query = GetRouteSeriesQuery(
             companyId = principal.companyId,
             seriesId = RouteSeriesId.from(seriesId)
@@ -88,17 +80,12 @@ class RouteSeriesController(
         @Valid @RequestBody request: AddChildToSeriesRequest
     ): ResponseEntity<AddChildToSeriesResponse> {
         val principal = getPrincipal()
-
-        val command = request.toCommand(
-            principal.companyId,
-            RouteSeriesId.from(seriesId)
-        )
-
+        val command = request.toCommand(principal.companyId, RouteSeriesId.from(seriesId))
         val result = addChildHandler.handle(principal, command)
 
         val message = if (result.conflictResolved) {
-            "Od dnia ${result.effectiveTo!!.plusDays(1)} pojawiły się zmiany. " +
-                    "Zmiany wprowadzono od ${result.effectiveFrom} do ${result.effectiveTo}."
+            "Changes detected from ${result.effectiveTo!!.plusDays(1)}. " +
+                    "Changes applied from ${result.effectiveFrom} to ${result.effectiveTo}."
         } else null
 
         return ResponseEntity
@@ -113,7 +100,6 @@ class RouteSeriesController(
         @Valid @RequestBody request: RemoveChildFromSeriesRequest
     ): ResponseEntity<RemoveChildFromSeriesResponse> {
         val principal = getPrincipal()
-
         val command = request.toCommand(
             principal.companyId,
             RouteSeriesId.from(seriesId),
@@ -121,7 +107,6 @@ class RouteSeriesController(
         )
 
         val result = removeChildHandler.handle(principal, command)
-
         return ResponseEntity.ok(RemoveChildFromSeriesResponse.from(result))
     }
 
@@ -131,12 +116,7 @@ class RouteSeriesController(
         @Valid @RequestBody request: CancelRouteSeriesRequest
     ): ResponseEntity<CancelRouteSeriesResponse> {
         val principal = getPrincipal()
-
-        val command = request.toCommand(
-            principal.companyId,
-            RouteSeriesId.from(seriesId)
-        )
-
+        val command = request.toCommand(principal.companyId, RouteSeriesId.from(seriesId))
         val result = cancelHandler.handle(principal, command)
 
         return ResponseEntity.ok(CancelRouteSeriesResponse.from(result))

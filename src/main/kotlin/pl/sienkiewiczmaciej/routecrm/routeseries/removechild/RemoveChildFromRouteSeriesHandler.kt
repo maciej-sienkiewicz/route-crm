@@ -1,39 +1,20 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/removechild/RemoveChildFromRouteSeriesHandler.kt
+// routeseries/removechild/RemoveChildFromRouteSeriesHandler.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries.removechild
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import pl.sienkiewiczmaciej.routecrm.child.domain.ChildRepository
+import pl.sienkiewiczmaciej.routecrm.child.getbyid.ChildNotFoundException
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.routeseries.addchild.RouteSeriesNotFoundException
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesRepository
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesScheduleRepository
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesStatus
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.services.SeriesConflictResolver
-import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
-import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.events.RouteSeriesChildRemovedEvent
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
-import java.time.LocalDate
-
-data class RemoveChildFromRouteSeriesCommand(
-    val companyId: CompanyId,
-    val seriesId: RouteSeriesId,
-    val scheduleId: ScheduleId,
-    val effectiveFrom: LocalDate,
-    val cancelExistingStops: Boolean = true
-)
-
-data class RemoveChildFromSeriesResult(
-    val seriesId: RouteSeriesId,
-    val scheduleId: ScheduleId,
-    val effectiveFrom: LocalDate,
-    val effectiveTo: LocalDate,
-    val stopsCancelled: Int
-)
 
 @Component
 class RemoveChildFromRouteSeriesHandler(
@@ -41,7 +22,9 @@ class RemoveChildFromRouteSeriesHandler(
     private val seriesScheduleRepository: RouteSeriesScheduleRepository,
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
-    private val conflictResolver: SeriesConflictResolver,
+    private val childRepository: ChildRepository,
+    private val effectiveDateValidator: RemoveChildEffectiveDateValidator,
+    private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -55,22 +38,17 @@ class RemoveChildFromRouteSeriesHandler(
         val series = routeSeriesRepository.findById(command.companyId, command.seriesId)
             ?: throw RouteSeriesNotFoundException(command.seriesId)
 
-        require(series.status == RouteSeriesStatus.ACTIVE || series.status == RouteSeriesStatus.PAUSED) {
+        require(series.status == RouteSeriesStatus.ACTIVE) {
             "Cannot remove child from series with status ${series.status}"
         }
-
-        val conflictResolution = conflictResolver.resolveRemoveChildConflict(
-            companyId = command.companyId,
-            seriesId = command.seriesId,
-            scheduleId = command.scheduleId,
-            requestedFrom = command.effectiveFrom
-        )
 
         val seriesSchedule = seriesScheduleRepository.findBySeriesAndSchedule(
             companyId = command.companyId,
             seriesId = command.seriesId,
             scheduleId = command.scheduleId
-        ) ?: throw IllegalArgumentException("Schedule not found in series")
+        ) ?: throw IllegalArgumentException("Schedule ${command.scheduleId.value} not found in series")
+
+        effectiveDateValidator.validate(command.effectiveFrom, seriesSchedule)
 
         val effectiveTo = command.effectiveFrom.minusDays(1)
         val updated = seriesSchedule.endValidity(effectiveTo)
@@ -90,10 +68,9 @@ class RemoveChildFromRouteSeriesHandler(
             for (route in affectedRoutes) {
                 val stops = stopRepository.findByRoute(
                     companyId = command.companyId,
-                    routeId = route.id
-                ).filter {
-                    it.scheduleId == command.scheduleId && !it.isCancelled
-                }
+                    routeId = route.id,
+                    includeCancelled = false
+                ).filter { it.scheduleId == command.scheduleId }
 
                 stops.forEach { stop ->
                     val cancelled = stop.cancel(
@@ -104,6 +81,21 @@ class RemoveChildFromRouteSeriesHandler(
                 }
             }
         }
+
+        val child = childRepository.findById(command.companyId, seriesSchedule.childId)
+            ?: throw ChildNotFoundException(seriesSchedule.childId)
+
+        eventPublisher.publish(
+            RouteSeriesChildRemovedEvent(
+                aggregateId = command.seriesId.value,
+                seriesId = command.seriesId,
+                companyId = command.companyId,
+                scheduleId = command.scheduleId,
+                childId = child.id,
+                effectiveFrom = command.effectiveFrom,
+                removedBy = principal.userId
+            )
+        )
 
         return RemoveChildFromSeriesResult(
             seriesId = command.seriesId,

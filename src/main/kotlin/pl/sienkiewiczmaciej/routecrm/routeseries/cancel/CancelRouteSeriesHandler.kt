@@ -1,36 +1,24 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/cancel/CancelRouteSeriesHandler.kt
+// routeseries/cancel/CancelRouteSeriesHandler.kt
 package pl.sienkiewiczmaciej.routecrm.routeseries.cancel
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
+import pl.sienkiewiczmaciej.routecrm.routeseries.addchild.RouteSeriesNotFoundException
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesRepository
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesStatus
-import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.events.RouteSeriesCancelledEvent
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
 import java.time.LocalDate
-
-data class CancelRouteSeriesCommand(
-    val companyId: CompanyId,
-    val seriesId: RouteSeriesId,
-    val reason: String,
-    val cancelFutureRoutes: Boolean = true
-)
-
-data class CancelRouteSeriesResult(
-    val seriesId: RouteSeriesId,
-    val status: RouteSeriesStatus,
-    val futureRoutesCancelled: Int
-)
 
 @Component
 class CancelRouteSeriesHandler(
     private val routeSeriesRepository: RouteSeriesRepository,
     private val routeRepository: RouteRepository,
+    private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -42,7 +30,7 @@ class CancelRouteSeriesHandler(
         authService.requireSameCompany(principal.companyId, command.companyId)
 
         val series = routeSeriesRepository.findById(command.companyId, command.seriesId)
-            ?: throw pl.sienkiewiczmaciej.routecrm.routeseries.addchild.RouteSeriesNotFoundException(command.seriesId)
+            ?: throw RouteSeriesNotFoundException(command.seriesId)
 
         val cancelledSeries = series.cancel(principal.userId, command.reason)
         routeSeriesRepository.save(cancelledSeries)
@@ -63,6 +51,16 @@ class CancelRouteSeriesHandler(
                 cancelledRoutesCount++
             }
         }
+
+        eventPublisher.publish(
+            RouteSeriesCancelledEvent(
+                aggregateId = cancelledSeries.id.value,
+                seriesId = cancelledSeries.id,
+                companyId = command.companyId,
+                reason = command.reason,
+                cancelledBy = principal.userId
+            )
+        )
 
         return CancelRouteSeriesResult(
             seriesId = cancelledSeries.id,
