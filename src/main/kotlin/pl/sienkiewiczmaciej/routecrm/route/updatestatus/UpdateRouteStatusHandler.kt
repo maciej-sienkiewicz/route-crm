@@ -73,6 +73,9 @@ class UpdateRouteStatusHandler(
             RouteStatus.CANCELLED -> {
                 route.cancel()
             }
+            RouteStatus.DRIVER_MISSING -> {
+                route
+            }
             RouteStatus.PLANNED -> {
                 throw IllegalArgumentException("Cannot change route back to PLANNED status")
             }

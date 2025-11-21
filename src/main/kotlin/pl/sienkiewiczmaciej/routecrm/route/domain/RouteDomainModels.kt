@@ -25,7 +25,8 @@ enum class RouteStatus {
     PLANNED,
     IN_PROGRESS,
     COMPLETED,
-    CANCELLED
+    CANCELLED,
+    DRIVER_MISSING
 }
 
 data class Route(
@@ -111,6 +112,28 @@ data class Route(
 
     fun canDeleteStops(): Boolean {
         return status == RouteStatus.PLANNED
+    }
+
+    fun reassignDriver(newDriverId: DriverId): Route {
+        require(status in listOf(RouteStatus.PLANNED, RouteStatus.DRIVER_MISSING)) {
+            "Can only reassign driver for PLANNED or DRIVER_MISSING routes"
+        }
+        require(driverId != newDriverId) {
+            "New driver must be different from current driver"
+        }
+
+        return copy(
+            driverId = newDriverId,
+            status = RouteStatus.PLANNED
+        )
+    }
+
+    fun markDriverMissing(): Route {
+        require(status == RouteStatus.PLANNED) {
+            "Can only mark PLANNED routes as DRIVER_MISSING"
+        }
+
+        return copy(status = RouteStatus.DRIVER_MISSING)
     }
 }
 
