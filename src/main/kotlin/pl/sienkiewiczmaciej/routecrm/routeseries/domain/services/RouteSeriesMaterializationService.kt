@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.absence.domain.services.AbsenceConflictChecker
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.route.domain.services.GapBasedStopOrderCalculator
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -32,7 +33,8 @@ class RouteSeriesMaterializationService(
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
     private val occurrenceRepository: RouteSeriesOccurrenceRepository,
-    private val absenceConflictChecker: AbsenceConflictChecker
+    private val absenceConflictChecker: AbsenceConflictChecker,
+    private val gapBasedStopOrderCalculator: GapBasedStopOrderCalculator,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -187,7 +189,7 @@ class RouteSeriesMaterializationService(
                     address = schedule.dropoffAddress
                 )
             )
-        }
+        }.let { gapBasedStopOrderCalculator.rebalance(it) }
 
         stopRepository.saveAll(stops)
 

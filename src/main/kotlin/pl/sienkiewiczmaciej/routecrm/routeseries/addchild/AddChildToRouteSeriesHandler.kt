@@ -7,6 +7,7 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStop
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.StopType
 import pl.sienkiewiczmaciej.routecrm.route.domain.services.RouteStopOrderingService
+import pl.sienkiewiczmaciej.routecrm.route.domain.services.StopInsertionService
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesSchedule
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesScheduleRepository
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.events.RouteSeriesChildAddedEvent
@@ -25,7 +26,8 @@ class AddChildToRouteSeriesHandler(
     private val conflictResolver: SeriesConflictResolver,
     private val orderingService: RouteStopOrderingService, // ← DODANE
     private val eventPublisher: DomainEventPublisher,
-    private val authService: AuthorizationService
+    private val authService: AuthorizationService,
+    private val insertionService: StopInsertionService,
 ) {
     @Transactional
     suspend fun handle(
@@ -85,7 +87,6 @@ class AddChildToRouteSeriesHandler(
 
             val childAlreadyInRoute = existingStops.any { it.childId == command.childId }
             if (!childAlreadyInRoute) {
-                // ← ZMIENIONE: Używamy RouteStopOrderingService
                 val pickupPosition = command.pickupStopOrder
 
                 val reorderedStops = orderingService.insertStopsAt(
@@ -121,8 +122,12 @@ class AddChildToRouteSeriesHandler(
                     address = context.schedule.dropoffAddress
                 )
 
-                stopRepository.save(pickupStop)
-                stopRepository.save(dropoffStop)
+                insertionService.insertStops(
+                    companyId = command.companyId,
+                    routeId = route.id,
+                    stopsToInsert = listOf(pickupStop, dropoffStop),
+                    afterOrder = null
+                )
 
                 routesUpdated++
             }

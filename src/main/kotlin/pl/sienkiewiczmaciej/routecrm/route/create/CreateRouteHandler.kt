@@ -8,6 +8,7 @@ import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteCreatedEvent
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteScheduleAddedEvent
+import pl.sienkiewiczmaciej.routecrm.route.domain.services.GapBasedStopOrderCalculator
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -60,7 +61,8 @@ class CreateRouteHandler(
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
     private val eventPublisher: DomainEventPublisher,
-    private val authService: AuthorizationService
+    private val authService: AuthorizationService,
+    private val gapBasedStopOrderCalculator: GapBasedStopOrderCalculator,
 ) {
     @Transactional
     suspend fun handle(principal: UserPrincipal, command: CreateRouteCommand): CreateRouteResult {
@@ -83,7 +85,8 @@ class CreateRouteHandler(
             companyId = command.companyId,
             stopsData = command.stops,
             context = context
-        )
+        ).let { gapBasedStopOrderCalculator.rebalance(it) }
+
         stopRepository.saveAll(stops)
 
         // 6. Publish domain event
