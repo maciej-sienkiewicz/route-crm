@@ -239,6 +239,7 @@ data class RouteNoteResponse(
 data class RouteDetailResponse(
     val id: String,
     val companyId: String,
+    val seriesId: String?,
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
@@ -259,6 +260,7 @@ data class RouteDetailResponse(
         fun from(detail: RouteDetail) = RouteDetailResponse(
             id = detail.id.value,
             companyId = detail.companyId.value,
+            seriesId = detail.seriesId?.value,
             routeName = detail.routeName,
             date = detail.date,
             status = detail.status,

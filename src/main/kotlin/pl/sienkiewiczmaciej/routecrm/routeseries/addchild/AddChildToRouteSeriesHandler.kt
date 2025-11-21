@@ -3,8 +3,12 @@ package pl.sienkiewiczmaciej.routecrm.routeseries.addchild
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import pl.sienkiewiczmaciej.routecrm.route.domain.*
-import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStop
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
+import pl.sienkiewiczmaciej.routecrm.route.domain.StopType
+import pl.sienkiewiczmaciej.routecrm.route.domain.services.RouteStopOrderingService
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesSchedule
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesScheduleRepository
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.events.RouteSeriesChildAddedEvent
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.services.ConflictResolution
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.services.SeriesConflictResolver
@@ -19,6 +23,7 @@ class AddChildToRouteSeriesHandler(
     private val seriesScheduleRepository: RouteSeriesScheduleRepository,
     private val stopRepository: RouteStopRepository,
     private val conflictResolver: SeriesConflictResolver,
+    private val orderingService: RouteStopOrderingService, // ← DODANE
     private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
@@ -80,6 +85,20 @@ class AddChildToRouteSeriesHandler(
 
             val childAlreadyInRoute = existingStops.any { it.childId == command.childId }
             if (!childAlreadyInRoute) {
+                // ← ZMIENIONE: Używamy RouteStopOrderingService
+                val pickupPosition = command.pickupStopOrder
+
+                val reorderedStops = orderingService.insertStopsAt(
+                    existingStops = existingStops,
+                    insertPosition = pickupPosition,
+                    numberOfStopsToInsert = 2 // pickup + dropoff
+                )
+
+                if (reorderedStops.isNotEmpty()) {
+                    stopRepository.saveAll(reorderedStops)
+                }
+
+                // Teraz tworzymy nowe stopy
                 val pickupStop = RouteStop.create(
                     companyId = command.companyId,
                     routeId = route.id,
@@ -101,16 +120,6 @@ class AddChildToRouteSeriesHandler(
                     estimatedTime = context.schedule.dropoffTime,
                     address = context.schedule.dropoffAddress
                 )
-
-                val reorderedStops = reorderStopsForInsertion(
-                    existingStops = existingStops,
-                    newPickupOrder = command.pickupStopOrder,
-                    newDropoffOrder = command.dropoffStopOrder
-                )
-
-                if (reorderedStops.isNotEmpty()) {
-                    stopRepository.saveAll(reorderedStops)
-                }
 
                 stopRepository.save(pickupStop)
                 stopRepository.save(dropoffStop)
@@ -140,21 +149,5 @@ class AddChildToRouteSeriesHandler(
             existingRoutesUpdated = routesUpdated,
             conflictResolved = conflictResolved
         )
-    }
-
-    private fun reorderStopsForInsertion(
-        existingStops: List<RouteStop>,
-        newPickupOrder: Int,
-        newDropoffOrder: Int
-    ): List<RouteStop> {
-        return existingStops.mapNotNull { stop ->
-            when {
-                stop.stopOrder >= newDropoffOrder ->
-                    stop.updateOrder(stop.stopOrder + 2)
-                stop.stopOrder >= newPickupOrder && stop.stopOrder < newDropoffOrder ->
-                    stop.updateOrder(stop.stopOrder + 1)
-                else -> null
-            }
-        }
     }
 }

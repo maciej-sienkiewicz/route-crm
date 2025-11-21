@@ -14,6 +14,7 @@ import pl.sienkiewiczmaciej.routecrm.driver.infrastructure.DriverJpaRepository
 import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianAssignmentJpaRepository
 import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianJpaRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.api.NotFoundException
@@ -57,6 +58,7 @@ data class RouteStopDetail(
 data class RouteDetail(
     val id: RouteId,
     val companyId: CompanyId,
+    val seriesId: RouteSeriesId?,
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
@@ -167,6 +169,7 @@ class GetRouteHandler(
         RouteDetail(
             id = route.id,
             companyId = route.companyId,
+            seriesId = route.seriesId,
             routeName = route.routeName,
             date = route.date,
             status = route.status,
