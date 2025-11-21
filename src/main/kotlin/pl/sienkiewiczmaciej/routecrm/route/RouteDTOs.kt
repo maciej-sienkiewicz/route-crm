@@ -26,6 +26,8 @@ import pl.sienkiewiczmaciej.routecrm.route.executestop.ExecuteRouteStopResult
 import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteDetail
 import pl.sienkiewiczmaciej.routecrm.route.list.RouteListItem
 import pl.sienkiewiczmaciej.routecrm.route.note.AddNoteResult
+import pl.sienkiewiczmaciej.routecrm.route.reassigndriver.ReassignDriverCommand
+import pl.sienkiewiczmaciej.routecrm.route.reassigndriver.ReassignDriverResult
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsCommand
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsResult
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.StopOrderUpdate
@@ -124,7 +126,7 @@ data class RouteResponse(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driverId: String,
+    val driverId: String?,
     val vehicleId: String,
     @JsonFormat(pattern = "HH:mm")
     val estimatedStartTime: LocalTime,
@@ -142,7 +144,7 @@ data class RouteResponse(
             routeName = result.routeName,
             date = result.date,
             status = result.status,
-            driverId = result.driverId.value,
+            driverId = result.driverId?.value,
             vehicleId = result.vehicleId.value,
             estimatedStartTime = result.estimatedStartTime,
             estimatedEndTime = result.estimatedEndTime,
@@ -891,3 +893,50 @@ data class RouteStopSuggestionResponse(
         )
     }
 }
+
+data class ReassignDriverRequest(
+    @field:NotBlank(message = "New driver ID is required")
+    val newDriverId: String,
+
+    @field:Size(max = 5000)
+    val reason: String? = null
+) {
+    fun toCommand(companyId: CompanyId, routeId: RouteId) =
+        ReassignDriverCommand(
+            companyId = companyId,
+            routeId = routeId,
+            newDriverId = DriverId.from(newDriverId),
+            reason = reason
+        )
+}
+
+data class ReassignDriverResponse(
+    val routeId: String,
+    val previousDriverId: String,
+    val newDriverId: String,
+    val status: RouteStatus,
+    val assignmentId: String,
+    val message: String
+) {
+    companion object {
+        fun from(result: ReassignDriverResult) = ReassignDriverResponse(
+            routeId = result.routeId.value,
+            previousDriverId = result.previousDriverId.value,
+            newDriverId = result.newDriverId.value,
+            status = result.status,
+            assignmentId = result.assignmentId.value,
+            message = "Driver reassigned successfully")
+    }
+}
+
+data class DriverAssignmentHistoryResponse(
+    val id: String,
+    val previousDriverId: String,
+    val previousDriverName: String,
+    val newDriverId: String,
+    val newDriverName: String,
+    val reassignedBy: String,
+    val reassignedByName: String,
+    val reassignedAt: Instant,
+    val reason: String?
+)

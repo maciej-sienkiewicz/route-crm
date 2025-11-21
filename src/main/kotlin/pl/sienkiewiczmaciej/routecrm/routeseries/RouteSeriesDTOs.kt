@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
+import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.routeseries.addchild.AddChildToRouteSeriesCommand
 import pl.sienkiewiczmaciej.routecrm.routeseries.addchild.AddChildToSeriesResult
@@ -16,6 +17,8 @@ import pl.sienkiewiczmaciej.routecrm.routeseries.create.CreateSeriesFromRouteRes
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeries
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesStatus
+import pl.sienkiewiczmaciej.routecrm.routeseries.reassigndriver.ReassignDriverForSeriesCommand
+import pl.sienkiewiczmaciej.routecrm.routeseries.reassigndriver.ReassignDriverForSeriesResult
 import pl.sienkiewiczmaciej.routecrm.routeseries.removechild.RemoveChildFromRouteSeriesCommand
 import pl.sienkiewiczmaciej.routecrm.routeseries.removechild.RemoveChildFromSeriesResult
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -216,3 +219,33 @@ data class RouteSeriesListResponse(
     val status: RouteSeriesStatus,
     val schedulesCount: Int
 )
+
+data class ReassignDriverForSeriesRequest(
+    @field:NotBlank val newDriverId: String,
+    @field:NotNull val effectiveFrom: LocalDate
+) {
+    fun toCommand(companyId: CompanyId, seriesId: RouteSeriesId) =
+        ReassignDriverForSeriesCommand(
+            companyId = companyId,
+            seriesId = seriesId,
+            newDriverId = DriverId.from(newDriverId),
+            effectiveFrom = effectiveFrom
+        )
+}
+
+data class ReassignDriverForSeriesResponse(
+    val seriesId: String,
+    val previousDriverId: String,
+    val newDriverId: String,
+    val futureRoutesUpdated: Int
+) {
+    companion object {
+        fun from(result: ReassignDriverForSeriesResult) =
+            ReassignDriverForSeriesResponse(
+                seriesId = result.seriesId.value,
+                previousDriverId = result.previousDriverId.value,
+                newDriverId = result.newDriverId.value,
+                futureRoutesUpdated = result.futureRoutesUpdated
+            )
+    }
+}

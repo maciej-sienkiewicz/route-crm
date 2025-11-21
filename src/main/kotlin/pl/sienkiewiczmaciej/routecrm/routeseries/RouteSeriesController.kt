@@ -18,6 +18,7 @@ import pl.sienkiewiczmaciej.routecrm.routeseries.getbyid.GetRouteSeriesHandler
 import pl.sienkiewiczmaciej.routecrm.routeseries.getbyid.GetRouteSeriesQuery
 import pl.sienkiewiczmaciej.routecrm.routeseries.list.ListRouteSeriesHandler
 import pl.sienkiewiczmaciej.routecrm.routeseries.list.ListRouteSeriesQuery
+import pl.sienkiewiczmaciej.routecrm.routeseries.reassigndriver.ReassignDriverForSeriesHandler
 import pl.sienkiewiczmaciej.routecrm.routeseries.removechild.RemoveChildFromRouteSeriesHandler
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.api.BaseController
@@ -30,7 +31,8 @@ class RouteSeriesController(
     private val getHandler: GetRouteSeriesHandler,
     private val addChildHandler: AddChildToRouteSeriesHandler,
     private val removeChildHandler: RemoveChildFromRouteSeriesHandler,
-    private val cancelHandler: CancelRouteSeriesHandler
+    private val cancelHandler: CancelRouteSeriesHandler,
+    private val reassignDriverHandler: ReassignDriverForSeriesHandler,
 ) : BaseController() {
 
     @PostMapping("/from-route/{routeId}")
@@ -120,5 +122,17 @@ class RouteSeriesController(
         val result = cancelHandler.handle(principal, command)
 
         return ResponseEntity.ok(CancelRouteSeriesResponse.from(result))
+    }
+
+    @PostMapping("/{seriesId}/reassign-driver")
+    suspend fun reassignDriver(
+        @PathVariable seriesId: String,
+        @Valid @RequestBody request: ReassignDriverForSeriesRequest
+    ): ResponseEntity<ReassignDriverForSeriesResponse> {
+        val principal = getPrincipal()
+        val command = request.toCommand(principal.companyId, RouteSeriesId.from(seriesId))
+        val result = reassignDriverHandler.handle(principal, command)
+
+        return ResponseEntity.ok(ReassignDriverForSeriesResponse.from(result))
     }
 }

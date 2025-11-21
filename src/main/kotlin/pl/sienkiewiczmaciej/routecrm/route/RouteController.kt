@@ -33,6 +33,7 @@ import pl.sienkiewiczmaciej.routecrm.route.list.ListRoutesHandler
 import pl.sienkiewiczmaciej.routecrm.route.list.ListRoutesQuery
 import pl.sienkiewiczmaciej.routecrm.route.note.AddRouteNoteCommand
 import pl.sienkiewiczmaciej.routecrm.route.note.AddRouteNoteHandler
+import pl.sienkiewiczmaciej.routecrm.route.reassigndriver.ReassignDriverHandler
 import pl.sienkiewiczmaciej.routecrm.route.reorderstops.ReorderRouteStopsHandler
 import pl.sienkiewiczmaciej.routecrm.route.suggestions.GetRouteSuggestionsHandler
 import pl.sienkiewiczmaciej.routecrm.route.upcoming.GetUpcomingRoutesHandler
@@ -62,6 +63,7 @@ class RouteController(
     private val getRouteHistoryHandler: GetRouteHistoryHandler,
     private val getUpcomingRoutesHandler: GetUpcomingRoutesHandler,
     private val getRouteSuggestionsHandler: GetRouteSuggestionsHandler,
+    private val reassignDriverHandler: ReassignDriverHandler,
 ) : BaseController() {
 
     @GetMapping("/available-children")
@@ -313,5 +315,17 @@ class RouteController(
         )
         return getRouteSuggestionsHandler.handle(principal, query)
             .map { RouteSuggestionResponse.from(it) }
+    }
+
+    @PostMapping("/{id}/reassign-driver")
+    suspend fun reassignDriver(
+        @PathVariable id: String,
+        @Valid @RequestBody request: ReassignDriverRequest
+    ): ResponseEntity<ReassignDriverResponse> {
+        val principal = getPrincipal()
+        val command = request.toCommand(principal.companyId, RouteId.from(id))
+        val result = reassignDriverHandler.handle(principal, command)
+
+        return ResponseEntity.ok(ReassignDriverResponse.from(result))
     }
 }
