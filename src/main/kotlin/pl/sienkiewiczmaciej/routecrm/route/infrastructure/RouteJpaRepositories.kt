@@ -18,6 +18,21 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
 
     fun findByCompanyId(companyId: String, pageable: Pageable): Page<RouteEntity>
 
+    @Query("""
+    SELECT r FROM RouteEntity r
+    WHERE r.companyId = :companyId
+    AND r.seriesId = :seriesId
+    AND r.date >= :fromDate
+    AND r.status IN :statuses
+    ORDER BY r.date
+""")
+    fun findBySeriesFromDate(
+        @Param("companyId") companyId: String,
+        @Param("seriesId") seriesId: String,
+        @Param("fromDate") fromDate: LocalDate,
+        @Param("statuses") statuses: Set<RouteStatus>
+    ): List<RouteEntity>
+
     // POPRAWIONE ZAPYTANIE - jawne rzutowanie typów
     @Query("""
         SELECT r FROM RouteEntity r

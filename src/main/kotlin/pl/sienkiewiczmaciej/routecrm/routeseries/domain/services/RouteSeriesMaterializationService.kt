@@ -1,0 +1,220 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/domain/services/RouteSeriesMaterializationService.kt
+package pl.sienkiewiczmaciej.routecrm.routeseries.domain.services
+
+import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import pl.sienkiewiczmaciej.routecrm.absence.domain.services.AbsenceConflictChecker
+import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
+import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
+import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
+import java.time.LocalDate
+
+data class MaterializationResult(
+    val routesCreated: Int,
+    val routesSkipped: Int,
+    val routesUpdated: Int,
+    val dateRange: ClosedRange<LocalDate>
+)
+
+sealed class MaterializationOutcome {
+    data class Created(val routeId: RouteId) : MaterializationOutcome()
+    data class Updated(val routeId: RouteId) : MaterializationOutcome()
+    data class Skipped(val routeId: RouteId?) : MaterializationOutcome()
+}
+
+@Service
+class RouteSeriesMaterializationService(
+    private val routeSeriesRepository: RouteSeriesRepository,
+    private val scheduleRepository: ScheduleRepository,
+    private val seriesScheduleRepository: RouteSeriesScheduleRepository,
+    private val routeRepository: RouteRepository,
+    private val stopRepository: RouteStopRepository,
+    private val occurrenceRepository: RouteSeriesOccurrenceRepository,
+    private val absenceConflictChecker: AbsenceConflictChecker,
+    private val eventPublisher: DomainEventPublisher
+) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
+    @Transactional
+    suspend fun materializeForDateRange(
+        dateRange: ClosedRange<LocalDate>,
+        forceRegenerate: Boolean = false,
+        companyId: CompanyId = CompanyId("Dummy")
+    ): MaterializationResult {
+        logger.info("Materializing routes for range $dateRange")
+
+        var created = 0
+        var skipped = 0
+        var updated = 0
+
+        val activeSeries = routeSeriesRepository.findActive(
+            companyId = companyId,
+            startDate = dateRange.start,
+            endDate = dateRange.endInclusive
+        )
+
+        logger.info("Found ${activeSeries.size} active series")
+
+        for (series in activeSeries) {
+            val occurrenceDates = calculateOccurrences(series, dateRange)
+
+            for (date in occurrenceDates) {
+                val result = materializeOccurrence(series, date, forceRegenerate)
+
+                when (result) {
+                    is MaterializationOutcome.Created -> created++
+                    is MaterializationOutcome.Skipped -> skipped++
+                    is MaterializationOutcome.Updated -> updated++
+                }
+            }
+        }
+
+        logger.info("Materialization complete: created=$created, skipped=$skipped, updated=$updated")
+
+        return MaterializationResult(created, skipped, updated, dateRange)
+    }
+
+    suspend fun ensureMaterializedForDate(
+        companyId: CompanyId,
+        date: LocalDate
+    ) {
+        materializeForDateRange(
+            dateRange = date..date,
+            forceRegenerate = false
+        )
+    }
+
+    private fun calculateOccurrences(
+        series: RouteSeries,
+        dateRange: ClosedRange<LocalDate>
+    ): List<LocalDate> {
+        val occurrences = mutableListOf<LocalDate>()
+        var currentDate = maxOf(series.startDate, dateRange.start)
+        val endDate = minOfOrNull(
+            series.endDate ?: LocalDate.MAX,
+            dateRange.endInclusive
+        ) ?: dateRange.endInclusive
+
+        while (!currentDate.isAfter(endDate)) {
+            if (series.matchesRecurrencePattern(currentDate)) {
+                occurrences.add(currentDate)
+            }
+            currentDate = currentDate.plusDays(1)
+        }
+
+        return occurrences
+    }
+
+    private suspend fun materializeOccurrence(
+        series: RouteSeries,
+        date: LocalDate,
+        forceRegenerate: Boolean
+    ): MaterializationOutcome {
+        val existing = occurrenceRepository.findBySeriesAndDate(
+            series.companyId,
+            series.id,
+            date
+        )
+
+        if (existing != null && existing.status == OccurrenceStatus.MATERIALIZED) {
+            if (!forceRegenerate) {
+                return MaterializationOutcome.Skipped(existing.routeId)
+            }
+            if (existing.routeId != null) {
+                routeRepository.delete(series.companyId, existing.routeId)
+            }
+        }
+
+        val schedules = seriesScheduleRepository.findActiveBySeries(
+            companyId = series.companyId,
+            seriesId = series.id,
+            date = date
+        )
+
+        if (schedules.isEmpty()) {
+            logger.warn("No schedules for series ${series.id} on $date")
+            return MaterializationOutcome.Skipped(null)
+        }
+
+        val schedulesWithoutAbsences = schedules.filter { seriesSchedule ->
+            val conflicts = absenceConflictChecker.checkConflictsForSchedule(
+                companyId = series.companyId,
+                childId = seriesSchedule.childId,
+                scheduleId = seriesSchedule.scheduleId,
+                date = date
+            )
+            conflicts.isEmpty()
+        }
+
+        if (schedulesWithoutAbsences.isEmpty()) {
+            logger.info("All schedules have absences on $date, skipping materialization")
+            return MaterializationOutcome.Skipped(null)
+        }
+
+        val route = Route.create(
+            companyId = series.companyId,
+            routeName = series.formatRouteName(date),
+            date = date,
+            driverId = series.driverId,
+            vehicleId = series.vehicleId,
+            estimatedStartTime = series.estimatedStartTime,
+            estimatedEndTime = series.estimatedEndTime
+        )
+
+        val savedRoute = routeRepository.save(route)
+
+        val stops = schedulesWithoutAbsences.flatMap { seriesSchedule ->
+            val schedule = scheduleRepository.findById(
+                series.companyId,
+                seriesSchedule.scheduleId
+            ) ?: return@flatMap emptyList()
+
+            listOf(
+                RouteStop.create(
+                    companyId = series.companyId,
+                    routeId = savedRoute.id,
+                    stopOrder = seriesSchedule.pickupStopOrder,
+                    stopType = StopType.PICKUP,
+                    childId = seriesSchedule.childId,
+                    scheduleId = seriesSchedule.scheduleId,
+                    estimatedTime = schedule.pickupTime,
+                    address = schedule.pickupAddress
+                ),
+                RouteStop.create(
+                    companyId = series.companyId,
+                    routeId = savedRoute.id,
+                    stopOrder = seriesSchedule.dropoffStopOrder,
+                    stopType = StopType.DROPOFF,
+                    childId = seriesSchedule.childId,
+                    scheduleId = seriesSchedule.scheduleId,
+                    estimatedTime = schedule.dropoffTime,
+                    address = schedule.dropoffAddress
+                )
+            )
+        }
+
+        stopRepository.saveAll(stops)
+
+        occurrenceRepository.save(
+            RouteSeriesOccurrence.materialized(
+                companyId = series.companyId,
+                seriesId = series.id,
+                occurrenceDate = date,
+                routeId = savedRoute.id
+            )
+        )
+
+        return if (existing != null) {
+            MaterializationOutcome.Updated(savedRoute.id)
+        } else {
+            MaterializationOutcome.Created(savedRoute.id)
+        }
+    }
+
+    private fun minOfOrNull(a: LocalDate, b: LocalDate): LocalDate? {
+        return if (a == LocalDate.MAX || b == LocalDate.MAX) null else minOf(a, b)
+    }
+}

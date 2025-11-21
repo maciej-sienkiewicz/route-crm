@@ -5,6 +5,7 @@ import jakarta.persistence.*
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.Address
@@ -14,15 +15,17 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteEntities.kt
+
 @Entity
 @Table(
     name = "routes",
     indexes = [
         Index(name = "idx_routes_company", columnList = "company_id"),
-        Index(name = "idx_routes_company_date", columnList = "company_id, date"),
-        Index(name = "idx_routes_company_status", columnList = "company_id, status"),
-        Index(name = "idx_routes_company_driver", columnList = "company_id, driver_id"),
-        Index(name = "idx_routes_date_status", columnList = "date, status")
+        Index(name = "idx_routes_date", columnList = "company_id, date"),
+        Index(name = "idx_routes_driver", columnList = "company_id, driver_id, date"),
+        Index(name = "idx_routes_status", columnList = "company_id, status, date"),
+        Index(name = "idx_routes_series", columnList = "company_id, series_id, date")  // ← NOWY INDEX
     ]
 )
 class RouteEntity(
@@ -39,10 +42,6 @@ class RouteEntity(
     @Column(nullable = false)
     val date: LocalDate,
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    val status: RouteStatus,
-
     @Column(name = "driver_id", nullable = false, length = 50)
     val driverId: String,
 
@@ -55,11 +54,23 @@ class RouteEntity(
     @Column(name = "estimated_end_time", nullable = false)
     val estimatedEndTime: LocalTime,
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    val status: RouteStatus,
+
     @Column(name = "actual_start_time")
     val actualStartTime: Instant?,
 
     @Column(name = "actual_end_time")
     val actualEndTime: Instant?,
+
+    // ========== NOWE POLA ==========
+    @Column(name = "series_id", length = 50)
+    val seriesId: String?,  // ← DODANE
+
+    @Column(name = "series_occurrence_date")
+    val seriesOccurrenceDate: LocalDate?,  // ← DODANE
+    // ================================
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
@@ -72,13 +83,16 @@ class RouteEntity(
         companyId = CompanyId(companyId),
         routeName = routeName,
         date = date,
-        status = status,
         driverId = DriverId(driverId),
         vehicleId = VehicleId(vehicleId),
         estimatedStartTime = estimatedStartTime,
         estimatedEndTime = estimatedEndTime,
+        status = status,
         actualStartTime = actualStartTime,
-        actualEndTime = actualEndTime
+        actualEndTime = actualEndTime,
+        seriesId = seriesId?.let { RouteSeriesId(it) },  // ← DODANE
+        seriesOccurrenceDate = seriesOccurrenceDate,      // ← DODANE
+        createdAt = createdAt
     )
 
     companion object {
@@ -87,13 +101,16 @@ class RouteEntity(
             companyId = route.companyId.value,
             routeName = route.routeName,
             date = route.date,
-            status = route.status,
             driverId = route.driverId.value,
             vehicleId = route.vehicleId.value,
             estimatedStartTime = route.estimatedStartTime,
             estimatedEndTime = route.estimatedEndTime,
+            status = route.status,
             actualStartTime = route.actualStartTime,
-            actualEndTime = route.actualEndTime
+            actualEndTime = route.actualEndTime,
+            seriesId = route.seriesId?.value,              // ← DODANE
+            seriesOccurrenceDate = route.seriesOccurrenceDate,  // ← DODANE
+            createdAt = route.createdAt
         )
     }
 }

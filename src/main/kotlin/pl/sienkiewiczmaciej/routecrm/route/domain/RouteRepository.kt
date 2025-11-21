@@ -4,6 +4,7 @@ package pl.sienkiewiczmaciej.routecrm.route.domain
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
@@ -49,6 +50,12 @@ interface RouteRepository {
         statuses: Set<RouteStatus>,
         pageable: Pageable
     ): Page<Route>
+    suspend fun findBySeries(
+        companyId: CompanyId,
+        seriesId: RouteSeriesId,
+        fromDate: LocalDate,
+        statuses: Set<RouteStatus>
+    ): List<Route>
 }
 
 interface RouteStopRepository {

@@ -3,6 +3,7 @@ package pl.sienkiewiczmaciej.routecrm.route.domain
 
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -32,13 +33,16 @@ data class Route(
     val companyId: CompanyId,
     val routeName: String,
     val date: LocalDate,
-    val status: RouteStatus,
     val driverId: DriverId,
     val vehicleId: VehicleId,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
-    val actualStartTime: Instant?,
-    val actualEndTime: Instant?
+    val status: RouteStatus,
+    val actualStartTime: Instant? = null,
+    val actualEndTime: Instant? = null,
+    val seriesId: RouteSeriesId? = null,           // ← DODANE
+    val seriesOccurrenceDate: LocalDate? = null,   // ← DODANE
+    val createdAt: Instant = Instant.now()
 ) {
     companion object {
         fun create(
@@ -48,27 +52,28 @@ data class Route(
             driverId: DriverId,
             vehicleId: VehicleId,
             estimatedStartTime: LocalTime,
-            estimatedEndTime: LocalTime
+            estimatedEndTime: LocalTime,
+            seriesId: RouteSeriesId? = null,           // ← DODANE
+            seriesOccurrenceDate: LocalDate? = null    // ← DODANE
         ): Route {
             require(routeName.isNotBlank()) { "Route name is required" }
-            require(routeName.length in 1..255) { "Route name must be between 1 and 255 characters" }
-            require(!date.isBefore(LocalDate.now())) { "Route date must be today or in the future" }
+            require(routeName.length <= 255) { "Route name too long" }
             require(estimatedEndTime.isAfter(estimatedStartTime)) {
-                "Estimated end time must be after start time"
+                "End time must be after start time"
             }
 
             return Route(
                 id = RouteId.generate(),
                 companyId = companyId,
-                routeName = routeName.trim(),
+                routeName = routeName,
                 date = date,
-                status = RouteStatus.PLANNED,
                 driverId = driverId,
                 vehicleId = vehicleId,
                 estimatedStartTime = estimatedStartTime,
                 estimatedEndTime = estimatedEndTime,
-                actualStartTime = null,
-                actualEndTime = null
+                status = RouteStatus.PLANNED,
+                seriesId = seriesId,                    // ← DODANE
+                seriesOccurrenceDate = seriesOccurrenceDate  // ← DODANE
             )
         }
     }

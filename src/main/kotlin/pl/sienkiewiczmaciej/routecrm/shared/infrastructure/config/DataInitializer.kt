@@ -5,30 +5,26 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
-import pl.sienkiewiczmaciej.routecrm.child.domain.*
+import pl.sienkiewiczmaciej.routecrm.child.domain.ChildStatus
+import pl.sienkiewiczmaciej.routecrm.child.domain.DisabilityType
+import pl.sienkiewiczmaciej.routecrm.child.domain.TransportNeeds
 import pl.sienkiewiczmaciej.routecrm.child.infrastructure.ChildEntity
 import pl.sienkiewiczmaciej.routecrm.child.infrastructure.ChildJpaRepository
 import pl.sienkiewiczmaciej.routecrm.driver.domain.Driver
-import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DrivingLicense
 import pl.sienkiewiczmaciej.routecrm.driver.domain.MedicalCertificate
 import pl.sienkiewiczmaciej.routecrm.driver.infrastructure.DriverEntity
 import pl.sienkiewiczmaciej.routecrm.driver.infrastructure.DriverJpaRepository
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.CommunicationPreference
-import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianAssignmentEntity
-import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianAssignmentJpaRepository
-import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianEntity
-import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianJpaRepository
-import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.GuardianRelationship
-import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.AddressEmbeddable
-import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.*
+import pl.sienkiewiczmaciej.routecrm.route.domain.ExecutionStatus
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
+import pl.sienkiewiczmaciej.routecrm.route.domain.StopType
 import pl.sienkiewiczmaciej.routecrm.route.infrastructure.RouteEntity
 import pl.sienkiewiczmaciej.routecrm.route.infrastructure.RouteJpaRepository
 import pl.sienkiewiczmaciej.routecrm.route.infrastructure.RouteStopEntity
 import pl.sienkiewiczmaciej.routecrm.route.infrastructure.RouteStopJpaRepository
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.DayOfWeek
-import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
-import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.schedule.infrastructure.ScheduleEntity
 import pl.sienkiewiczmaciej.routecrm.schedule.infrastructure.ScheduleJpaRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.Address
@@ -45,6 +41,7 @@ import pl.sienkiewiczmaciej.routecrm.vehicle.infrastructure.VehicleJpaRepository
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneOffset
 import java.util.*
 
 @Component
@@ -620,8 +617,8 @@ class DataInitializer(
                 estimatedStartTime = LocalTime.of(7, 0),
                 estimatedEndTime = LocalTime.of(8, 45),
                 status = RouteStatus.COMPLETED,
-                actualStartTime = yesterday.atTime(7, 2).toInstant(java.time.ZoneOffset.UTC),
-                actualEndTime = yesterday.atTime(8, 50).toInstant(java.time.ZoneOffset.UTC)
+                actualStartTime = yesterday.atTime(7, 2).toInstant(ZoneOffset.UTC),
+                actualEndTime = yesterday.atTime(8, 50).toInstant(ZoneOffset.UTC)
             )
             routes.add(routeJpaRepository.save(route3))
 
@@ -637,7 +634,7 @@ class DataInitializer(
                 routeStopJpaRepository.save(
                     stop.copy(
                         actualTime = yesterday.atTime(stop.estimatedTime).plusMinutes(2)
-                            .toInstant(java.time.ZoneOffset.UTC),
+                            .toInstant(ZoneOffset.UTC),
                         executionStatus = ExecutionStatus.COMPLETED,
                         executedByUserId = "SYS-INIT",
                         executedByName = "${drivers[2].firstName} ${drivers[2].lastName}"
@@ -740,7 +737,9 @@ class DataInitializer(
             actualStartTime = actualStartTime,
             actualEndTime = actualEndTime,
             createdAt = Instant.now(),
-            updatedAt = Instant.now()
+            updatedAt = Instant.now(),
+            seriesId = null,
+            seriesOccurrenceDate = null,
         )
     }
 

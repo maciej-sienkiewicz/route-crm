@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.routeseries.domain.RouteSeriesId
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
@@ -57,6 +58,20 @@ class RouteRepositoryImpl(
             driverId.value,
             date,
             pageable
+        ).map { it.toDomain() }
+    }
+
+    override suspend fun findBySeries(
+        companyId: CompanyId,
+        seriesId: RouteSeriesId,
+        fromDate: LocalDate,
+        statuses: Set<RouteStatus>
+    ): List<Route> = withContext(Dispatchers.IO) {
+        jpaRepository.findBySeriesFromDate(
+            companyId.value,
+            seriesId.value,
+            fromDate,
+            statuses
         ).map { it.toDomain() }
     }
 
