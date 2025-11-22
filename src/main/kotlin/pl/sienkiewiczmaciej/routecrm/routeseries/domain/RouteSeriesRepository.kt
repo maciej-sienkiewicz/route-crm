@@ -45,6 +45,14 @@ interface RouteSeriesScheduleRepository {
         seriesId: RouteSeriesId
     ): List<RouteSeriesSchedule>
     suspend fun delete(companyId: CompanyId, id: RouteSeriesScheduleId)
+    /**
+     * Finds all series schedules for a given schedule ID.
+     * Used to detect if schedule is already part of any series.
+     */
+    suspend fun findBySchedule(
+        companyId: CompanyId,
+        scheduleId: ScheduleId
+    ): List<RouteSeriesSchedule>
 }
 
 interface RouteSeriesOccurrenceRepository {

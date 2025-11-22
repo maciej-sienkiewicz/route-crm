@@ -121,31 +121,51 @@ class RouteSeriesMaterializationService(
             }
         }
 
-        val schedules = seriesScheduleRepository.findActiveBySeries(
+        // ===== POPRAWIONA LOGIKA =====
+        // Pobierz schedules aktywne dla TEJ serii na dany dzień
+        val seriesSchedules = seriesScheduleRepository.findActiveBySeries(
             companyId = series.companyId,
             seriesId = series.id,
             date = date
         )
 
-        if (schedules.isEmpty()) {
+        if (seriesSchedules.isEmpty()) {
             logger.debug("No schedules for series ${series.id.value} on $date")
             return MaterializationOutcome.Skipped(null)
         }
 
-        val schedulesWithoutAbsences = schedules.filter { seriesSchedule ->
-            val conflicts = absenceConflictChecker.checkConflictsForSchedule(
+        // Sprawdź czy schedules nie są już zajęte w INNYCH trasach lub seriach
+        val availableSchedules = seriesSchedules.filter { seriesSchedule ->
+            val hasConflict = hasScheduleConflict(
+                companyId = series.companyId,
+                scheduleId = seriesSchedule.scheduleId,
+                date = date,
+                excludeSeriesId = series.id // Wykluczamy obecną serię z walidacji
+            )
+            !hasConflict
+        }
+
+        if (availableSchedules.isEmpty()) {
+            logger.debug("All schedules have conflicts on $date for series ${series.id.value}")
+            return MaterializationOutcome.Skipped(null)
+        }
+
+        // Filtruj schedules z nieobecnościami
+        val schedulesWithoutAbsences = availableSchedules.filter { seriesSchedule ->
+            val absenceConflicts = absenceConflictChecker.checkConflictsForSchedule(
                 companyId = series.companyId,
                 childId = seriesSchedule.childId,
                 scheduleId = seriesSchedule.scheduleId,
                 date = date
             )
-            conflicts.isEmpty()
+            absenceConflicts.isEmpty()
         }
 
         if (schedulesWithoutAbsences.isEmpty()) {
-            logger.debug("All schedules have absences on $date for series ${series.id.value}")
+            logger.debug("All available schedules have absences on $date for series ${series.id.value}")
             return MaterializationOutcome.Skipped(null)
         }
+        // =============================
 
         val route = Route.create(
             companyId = series.companyId,
@@ -207,5 +227,31 @@ class RouteSeriesMaterializationService(
         } else {
             MaterializationOutcome.Created(savedRoute.id)
         }
+    }
+
+    /**
+     * Checks if a schedule is already assigned to any route or series on the given date,
+     * excluding the specified series.
+     */
+    private suspend fun hasScheduleConflict(
+        companyId: CompanyId,
+        scheduleId: pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId,
+        date: LocalDate,
+        excludeSeriesId: RouteSeriesId
+    ): Boolean {
+        // Check if schedule has stops in any regular route or route from different series
+        val existingStops = stopRepository.findByScheduleAndDate(
+            companyId = companyId,
+            scheduleId = scheduleId,
+            date = date
+        )
+
+        // If stops exist, check if they belong to a different series or no series at all
+        val hasConflict = existingStops.any { stop ->
+            val route = routeRepository.findById(companyId, stop.routeId)
+            route != null && route.seriesId != excludeSeriesId
+        }
+
+        return hasConflict
     }
 }

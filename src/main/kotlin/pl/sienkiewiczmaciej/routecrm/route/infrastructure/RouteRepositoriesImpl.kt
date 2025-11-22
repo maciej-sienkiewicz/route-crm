@@ -188,6 +188,18 @@ class RouteStopRepositoryImpl(
         withContext(Dispatchers.IO) {
             jpaRepository.countByCompanyIdAndRouteId(companyId.value, routeId.value)
         }
+
+    override suspend fun findByScheduleAndDate(
+        companyId: CompanyId,
+        scheduleId: ScheduleId,
+        date: LocalDate
+    ): List<RouteStop> = withContext(Dispatchers.IO) {
+        jpaRepository.findByScheduleIdAndDate(
+            companyId.value,
+            scheduleId.value,
+            date
+        ).map { it.toDomain() }
+    }
 }
 
 @Repository

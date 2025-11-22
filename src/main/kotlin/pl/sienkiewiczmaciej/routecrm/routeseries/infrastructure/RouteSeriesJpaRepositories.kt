@@ -37,6 +37,11 @@ interface RouteSeriesJpaRepository : JpaRepository<RouteSeriesEntity, String> {
 interface RouteSeriesScheduleJpaRepository : JpaRepository<RouteSeriesScheduleEntity, String> {
     fun findByIdAndCompanyId(id: String, companyId: String): RouteSeriesScheduleEntity?
 
+    fun findByCompanyIdAndScheduleId(
+        companyId: String,
+        scheduleId: String
+    ): List<RouteSeriesScheduleEntity>
+
     @Query("""
         SELECT s FROM RouteSeriesScheduleEntity s
         WHERE s.companyId = :companyId

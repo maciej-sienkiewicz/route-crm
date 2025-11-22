@@ -73,6 +73,16 @@ class RouteSeriesScheduleRepositoryImpl(
             jpaRepository.save(entity).toDomain()
         }
 
+    override suspend fun findBySchedule(
+        companyId: CompanyId,
+        scheduleId: ScheduleId
+    ): List<RouteSeriesSchedule> = withContext(Dispatchers.IO) {
+        jpaRepository.findByCompanyIdAndScheduleId(
+            companyId.value,
+            scheduleId.value
+        ).map { it.toDomain() }
+    }
+
     override suspend fun saveAll(schedules: List<RouteSeriesSchedule>): List<RouteSeriesSchedule> =
         withContext(Dispatchers.IO) {
             val entities = schedules.map { RouteSeriesScheduleEntity.fromDomain(it) }

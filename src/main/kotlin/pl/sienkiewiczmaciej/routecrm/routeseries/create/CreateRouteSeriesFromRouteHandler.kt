@@ -46,6 +46,7 @@ class CreateRouteSeriesFromRouteHandler(
     private val routeSeriesRepository: RouteSeriesRepository,
     private val seriesScheduleRepository: RouteSeriesScheduleRepository,
     private val materializationService: RouteSeriesMaterializationService,
+    private val scheduleConflictValidator: ScheduleConflictValidator,
     private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService
 ) {
@@ -88,6 +89,16 @@ class CreateRouteSeriesFromRouteHandler(
         require(scheduleStops.isNotEmpty()) {
             "Route has no valid schedule pairs to copy"
         }
+
+        // Validate schedule availability - throws ScheduleConflictException if conflicts found
+        scheduleConflictValidator.validateAndThrowIfConflicts(
+            companyId = command.companyId,
+            scheduleIds = scheduleStops.map { it.scheduleId },
+            startDate = command.startDate,
+            endDate = command.endDate,
+            recurrenceInterval = command.recurrenceInterval,
+            dayOfWeek = command.startDate.dayOfWeek
+        )
 
         val series = RouteSeries.create(
             companyId = command.companyId,

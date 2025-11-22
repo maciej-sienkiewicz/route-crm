@@ -21,10 +21,11 @@ import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.Authorizatio
 @Component
 class AddChildToRouteSeriesHandler(
     private val validatorComposite: AddChildValidatorComposite,
+    private val scheduleConflictValidator: AddChildScheduleConflictValidator,
     private val seriesScheduleRepository: RouteSeriesScheduleRepository,
     private val stopRepository: RouteStopRepository,
     private val conflictResolver: SeriesConflictResolver,
-    private val orderingService: RouteStopOrderingService, // ← DODANE
+    private val orderingService: RouteStopOrderingService,
     private val eventPublisher: DomainEventPublisher,
     private val authService: AuthorizationService,
     private val insertionService: StopInsertionService,
@@ -59,6 +60,17 @@ class AddChildToRouteSeriesHandler(
             }
         }
 
+        // ===== NOWA WALIDACJA KONFLIKTÓW =====
+        scheduleConflictValidator.validateAndThrowIfConflicts(
+            companyId = command.companyId,
+            series = context.series,
+            child = context.child,
+            scheduleId = command.scheduleId,
+            effectiveFrom = effectiveFrom,
+            effectiveTo = effectiveTo
+        )
+        // =====================================
+
         val seriesSchedule = RouteSeriesSchedule.create(
             companyId = command.companyId,
             seriesId = command.seriesId,
@@ -92,14 +104,13 @@ class AddChildToRouteSeriesHandler(
                 val reorderedStops = orderingService.insertStopsAt(
                     existingStops = existingStops,
                     insertPosition = pickupPosition,
-                    numberOfStopsToInsert = 2 // pickup + dropoff
+                    numberOfStopsToInsert = 2
                 )
 
                 if (reorderedStops.isNotEmpty()) {
                     stopRepository.saveAll(reorderedStops)
                 }
 
-                // Teraz tworzymy nowe stopy
                 val pickupStop = RouteStop.create(
                     companyId = command.companyId,
                     routeId = route.id,

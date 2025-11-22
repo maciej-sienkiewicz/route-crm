@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import pl.sienkiewiczmaciej.routecrm.routeseries.create.ScheduleConflictException
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.ForbiddenException
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.UnauthorizedException
 import java.time.Instant
@@ -45,6 +46,22 @@ class GlobalExceptionHandler {
             .body(ValidationErrorResponse("Validation failed", errors))
     }
 
+    @ExceptionHandler(ScheduleConflictException::class)
+    fun handleScheduleConflict(ex: ScheduleConflictException): ResponseEntity<ScheduleConflictErrorResponse> {
+        val conflictData = ex.getConflictData()
+        return ResponseEntity
+            .status(CONFLICT)
+            .body(
+                ScheduleConflictErrorResponse(
+                    message = "Schedule conflicts detected",
+                    conflicts = ScheduleConflicts(
+                        singleRoutes = conflictData.singleRoutes,
+                        series = conflictData.series
+                    )
+                )
+            )
+    }
+
     @ExceptionHandler(Exception::class)
     fun handleGeneral(ex: Exception): ResponseEntity<ErrorResponse> {
         logger.error("Unexpected error", ex)
@@ -62,6 +79,41 @@ data class ErrorResponse(
 data class ValidationErrorResponse(
     val message: String,
     val errors: Map<String, String> = emptyMap(),
+    val timestamp: Instant = Instant.now()
+)
+
+/**
+ * Structured conflicts data.
+ * singleRoutes: Conflicts with individual routes - grouped by child name with dates
+ * series: Conflicts with route series - grouped by child name with series name
+ */
+data class ScheduleConflicts(
+    val singleRoutes: Map<String, List<String>>,
+    val series: Map<String, String>
+)
+
+/**
+ * Response for schedule conflict errors.
+ *
+ * Example JSON:
+ * {
+ *   "message": "Schedule conflicts detected",
+ *   "conflicts": {
+ *     "singleRoutes": {
+ *       "Jan Kowalski": ["2024-01-15", "2024-01-22"],
+ *       "Anna Nowak": ["2024-01-15"]
+ *     },
+ *     "series": {
+ *       "Jan Kowalski": "Trasa Poniedziałkowa",
+ *       "Piotr Wiśniewski": "Trasa Środowa"
+ *     }
+ *   },
+ *   "timestamp": "2024-01-10T10:30:00Z"
+ * }
+ */
+data class ScheduleConflictErrorResponse(
+    val message: String,
+    val conflicts: ScheduleConflicts,
     val timestamp: Instant = Instant.now()
 )
 

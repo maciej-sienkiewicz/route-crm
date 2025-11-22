@@ -150,6 +150,20 @@ interface RouteStopJpaRepository : JpaRepository<RouteStopEntity, String> {
 
     @Query("""
         SELECT s FROM RouteStopEntity s
+        JOIN RouteEntity r ON s.routeId = r.id AND s.companyId = r.companyId
+        WHERE s.companyId = :companyId
+        AND s.scheduleId = :scheduleId
+        AND r.date = :date
+        AND s.isCancelled = false
+    """)
+    fun findByScheduleIdAndDate(
+        @Param("companyId") companyId: String,
+        @Param("scheduleId") scheduleId: String,
+        @Param("date") date: LocalDate
+    ): List<RouteStopEntity>
+
+    @Query("""
+        SELECT s FROM RouteStopEntity s
         JOIN RouteEntity r ON s.routeId = r.id
         WHERE s.companyId = :companyId
         AND s.childId = :childId

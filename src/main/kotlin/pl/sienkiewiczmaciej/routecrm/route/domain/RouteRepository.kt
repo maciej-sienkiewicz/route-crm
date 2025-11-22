@@ -70,6 +70,15 @@ interface RouteStopRepository {
     suspend fun delete(companyId: CompanyId, id: RouteStopId)
     suspend fun deleteByRoute(companyId: CompanyId, routeId: RouteId)
     suspend fun countByRoute(companyId: CompanyId, routeId: RouteId): Int
+    /**
+     * Finds all stops for a given schedule on a specific date.
+     * Used to detect schedule conflicts when creating route series.
+     */
+    suspend fun findByScheduleAndDate(
+        companyId: CompanyId,
+        scheduleId: ScheduleId,
+        date: LocalDate
+    ): List<RouteStop>
 }
 
 interface RouteNoteRepository {
