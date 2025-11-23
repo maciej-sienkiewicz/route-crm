@@ -1,7 +1,6 @@
 package pl.sienkiewiczmaciej.routecrm.guardian.infrastructure
 
 import jakarta.persistence.*
-import pl.sienkiewiczmaciej.routecrm.guardian.domain.CommunicationPreference
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.Guardian
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.Address
@@ -31,28 +30,21 @@ class GuardianEntity(
     @Column(name = "last_name", nullable = false, length = 255)
     val lastName: String,
 
-    @Column(nullable = false, length = 255)
-    val email: String,
+    @Column(nullable = true, length = 255)
+    val email: String?,
 
     @Column(nullable = false, length = 20)
     val phone: String,
 
-    @Column(name = "alternate_phone", length = 20)
-    val alternatePhone: String?,
-
     @Embedded
     @AttributeOverrides(
-        AttributeOverride(name = "street", column = Column(name = "address_street", nullable = false)),
-        AttributeOverride(name = "houseNumber", column = Column(name = "address_house_number", nullable = false)),
+        AttributeOverride(name = "street", column = Column(name = "address_street", nullable = true)),
+        AttributeOverride(name = "houseNumber", column = Column(name = "address_house_number", nullable = true)),
         AttributeOverride(name = "apartmentNumber", column = Column(name = "address_apartment_number")),
-        AttributeOverride(name = "postalCode", column = Column(name = "address_postal_code", nullable = false)),
-        AttributeOverride(name = "city", column = Column(name = "address_city", nullable = false))
+        AttributeOverride(name = "postalCode", column = Column(name = "address_postal_code", nullable = true)),
+        AttributeOverride(name = "city", column = Column(name = "address_city", nullable = true))
     )
-    val address: AddressEmbeddable,
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "communication_preference", nullable = false, length = 20)
-    val communicationPreference: CommunicationPreference,
+    val address: AddressEmbeddable?,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
@@ -67,9 +59,7 @@ class GuardianEntity(
         lastName = lastName,
         email = email,
         phone = phone,
-        alternatePhone = alternatePhone,
-        address = address.toDomain(),
-        communicationPreference = communicationPreference
+        address = address?.toDomain(),
     )
 
     companion object {
@@ -80,9 +70,7 @@ class GuardianEntity(
             lastName = guardian.lastName,
             email = guardian.email,
             phone = guardian.phone,
-            alternatePhone = guardian.alternatePhone,
-            address = AddressEmbeddable.fromDomain(guardian.address),
-            communicationPreference = guardian.communicationPreference
+            address = guardian.address?.let { AddressEmbeddable.fromDomain(it) },
         )
     }
 }

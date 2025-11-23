@@ -71,7 +71,6 @@ class CreateChildHandler(
                 lastName = command.newGuardianData.lastName,
                 email = command.newGuardianData.email,
                 phone = command.newGuardianData.phone,
-                alternatePhone = null,
                 address = Address(
                     street = "ul. Przykładowa",
                     houseNumber = "1",
@@ -79,7 +78,6 @@ class CreateChildHandler(
                     postalCode = "00-001",
                     city = "Warszawa"
                 ),
-                communicationPreference = pl.sienkiewiczmaciej.routecrm.guardian.domain.CommunicationPreference.SMS
             )
             guardianRepository.save(newGuardian)
         }

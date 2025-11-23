@@ -4,7 +4,6 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import pl.sienkiewiczmaciej.routecrm.guardian.domain.CommunicationPreference
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianId
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -22,7 +21,7 @@ data class GuardianListItem(
     val id: GuardianId,
     val firstName: String,
     val lastName: String,
-    val email: String,
+    val email: String?,
     val phone: String,
     val childrenCount: Int = 0
 )
@@ -48,7 +47,7 @@ class ListGuardiansHandler(
                 id = guardian.id,
                 firstName = guardian.firstName,
                 lastName = guardian.lastName,
-                email = guardian.email,
+                email = guardian?.email,
                 phone = guardian.phone,
                 childrenCount = 0
             )

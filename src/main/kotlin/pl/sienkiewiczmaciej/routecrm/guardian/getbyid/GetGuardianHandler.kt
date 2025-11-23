@@ -2,8 +2,6 @@ package pl.sienkiewiczmaciej.routecrm.guardian.getbyid
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import pl.sienkiewiczmaciej.routecrm.guardian.domain.CommunicationPreference
-import pl.sienkiewiczmaciej.routecrm.guardian.domain.Guardian
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianId
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianRepository
 import pl.sienkiewiczmaciej.routecrm.shared.api.NotFoundException
@@ -23,11 +21,9 @@ data class GuardianDetail(
     val companyId: CompanyId,
     val firstName: String,
     val lastName: String,
-    val email: String,
+    val email: String?,
     val phone: String,
-    val alternatePhone: String?,
-    val address: Address,
-    val communicationPreference: CommunicationPreference,
+    val address: Address?,
     val children: List<GuardianChildInfo> = emptyList()
 )
 
@@ -62,9 +58,7 @@ class GetGuardianHandler(
             lastName = guardian.lastName,
             email = guardian.email,
             phone = guardian.phone,
-            alternatePhone = guardian.alternatePhone,
             address = guardian.address,
-            communicationPreference = guardian.communicationPreference,
             children = emptyList()
         )
     }

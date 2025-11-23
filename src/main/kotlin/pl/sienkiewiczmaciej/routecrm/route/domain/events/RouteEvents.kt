@@ -8,6 +8,7 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserId
+import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEvent
 import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleId
 import java.time.Instant
@@ -27,6 +28,21 @@ data class RouteCreatedEvent(
     val vehicleId: VehicleId,
     val createdBy: UserId,
     val createdByName: String
+) : DomainEvent
+
+data class RouteDeletedEvent(
+    override val eventId: String = "EVT-${UUID.randomUUID()}",
+    override val occurredAt: Instant = Instant.now(),
+    override val aggregateId: String,
+    override val aggregateType: String = "Route",
+    val routeId: RouteId,
+    val companyId: CompanyId,
+    val routeName: String,
+    val date: LocalDate,
+    val driverId: DriverId?,
+    val vehicleId: VehicleId,
+    val createdBy: UserPrincipal,
+    val affectedChildren: Set<ChildId>
 ) : DomainEvent
 
 data class RouteScheduleAddedEvent(

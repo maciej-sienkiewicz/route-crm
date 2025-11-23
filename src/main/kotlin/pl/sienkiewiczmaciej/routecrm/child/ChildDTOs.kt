@@ -8,7 +8,10 @@ import jakarta.validation.constraints.Size
 import pl.sienkiewiczmaciej.routecrm.child.create.CreateChildCommand
 import pl.sienkiewiczmaciej.routecrm.child.create.CreateChildResult
 import pl.sienkiewiczmaciej.routecrm.child.create.NewGuardianData
-import pl.sienkiewiczmaciej.routecrm.child.domain.*
+import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
+import pl.sienkiewiczmaciej.routecrm.child.domain.ChildStatus
+import pl.sienkiewiczmaciej.routecrm.child.domain.DisabilityType
+import pl.sienkiewiczmaciej.routecrm.child.domain.TransportNeeds
 import pl.sienkiewiczmaciej.routecrm.child.getbyid.ChildDetail
 import pl.sienkiewiczmaciej.routecrm.child.getbyid.ChildGuardianInfo
 import pl.sienkiewiczmaciej.routecrm.child.list.ChildListItem
@@ -214,7 +217,7 @@ data class GuardianInfoResponse(
     val id: String,
     val firstName: String,
     val lastName: String,
-    val email: String,
+    val email: String?,
     val phone: String,
     val relationship: GuardianRelationship,
     val isPrimary: Boolean,

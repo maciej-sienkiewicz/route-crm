@@ -55,4 +55,6 @@ data class UserPrincipal(
     val role: UserRole,
     val guardianId: String? = null,
     val driverId: String? = null
-) : Serializable
+) : Serializable {
+    fun fullName() = "${firstName} ${lastName}"
+}

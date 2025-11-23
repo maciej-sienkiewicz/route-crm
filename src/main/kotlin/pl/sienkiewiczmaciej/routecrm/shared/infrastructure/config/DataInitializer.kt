@@ -15,7 +15,6 @@ import pl.sienkiewiczmaciej.routecrm.driver.domain.DrivingLicense
 import pl.sienkiewiczmaciej.routecrm.driver.domain.MedicalCertificate
 import pl.sienkiewiczmaciej.routecrm.driver.infrastructure.DriverEntity
 import pl.sienkiewiczmaciej.routecrm.driver.infrastructure.DriverJpaRepository
-import pl.sienkiewiczmaciej.routecrm.guardian.domain.CommunicationPreference
 import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.*
 import pl.sienkiewiczmaciej.routecrm.route.domain.ExecutionStatus
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
@@ -196,7 +195,6 @@ class DataInitializer(
                 lastName = lastName,
                 email = "$index$email",
                 phone = "+48${(500000000 + index * 111111).toString().take(9)}",
-                alternatePhone = if (index % 3 == 0) "+48${(600000000 + index * 111111).toString().take(9)}" else null,
                 address = AddressEmbeddable(
                     street = streets[index % streets.size],
                     houseNumber = "${(index + 1) * 3}",
@@ -204,7 +202,6 @@ class DataInitializer(
                     postalCode = "6${index % 2}-${String.format("%03d", (100 + index * 10) % 1000)}",
                     city = cities[index % cities.size]
                 ),
-                communicationPreference = CommunicationPreference.values()[index % CommunicationPreference.values().size]
             )
             guardianRepository.save(guardian)
         }

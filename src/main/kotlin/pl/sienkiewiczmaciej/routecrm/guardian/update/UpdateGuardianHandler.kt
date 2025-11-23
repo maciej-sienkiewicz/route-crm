@@ -2,7 +2,6 @@ package pl.sienkiewiczmaciej.routecrm.guardian.update
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import pl.sienkiewiczmaciej.routecrm.guardian.domain.CommunicationPreference
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianId
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianRepository
 import pl.sienkiewiczmaciej.routecrm.guardian.getbyid.GuardianNotFoundException
@@ -21,14 +20,13 @@ data class UpdateGuardianCommand(
     val phone: String,
     val alternatePhone: String?,
     val address: Address,
-    val communicationPreference: CommunicationPreference
 )
 
 data class UpdateGuardianResult(
     val id: GuardianId,
     val firstName: String,
     val lastName: String,
-    val email: String
+    val email: String?
 )
 
 @Component
@@ -53,9 +51,7 @@ class UpdateGuardianHandler(
             lastName = command.lastName,
             email = command.email,
             phone = command.phone,
-            alternatePhone = command.alternatePhone,
             address = command.address,
-            communicationPreference = command.communicationPreference
         )
 
         val saved = guardianRepository.save(updated)
@@ -64,7 +60,7 @@ class UpdateGuardianHandler(
             id = saved.id,
             firstName = saved.firstName,
             lastName = saved.lastName,
-            email = saved.email
+            email = saved?.email
         )
     }
 }

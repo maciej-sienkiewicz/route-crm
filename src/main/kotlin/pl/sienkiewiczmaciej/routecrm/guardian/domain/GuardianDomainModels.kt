@@ -12,39 +12,27 @@ value class GuardianId(val value: String) {
     }
 }
 
-enum class CommunicationPreference {
-    SMS,
-    EMAIL,
-    PHONE,
-    APP
-}
-
 data class Guardian(
     val id: GuardianId,
     val companyId: CompanyId,
     val firstName: String,
     val lastName: String,
-    val email: String,
+    val email: String?,
     val phone: String,
-    val alternatePhone: String?,
-    val address: Address,
-    val communicationPreference: CommunicationPreference
+    val address: Address?,
 ) {
     companion object {
         fun create(
             companyId: CompanyId,
             firstName: String,
             lastName: String,
-            email: String,
+            email: String?,
             phone: String,
-            alternatePhone: String?,
-            address: Address,
-            communicationPreference: CommunicationPreference
+            address: Address?,
         ): Guardian {
             require(firstName.isNotBlank()) { "First name is required" }
             require(lastName.isNotBlank()) { "Last name is required" }
-            require(email.isNotBlank()) { "Email is required" }
-            require(email.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"))) {
+            require(email == null || email.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"))) {
                 "Invalid email format"
             }
             require(phone.isNotBlank()) { "Phone is required" }
@@ -57,11 +45,9 @@ data class Guardian(
                 companyId = companyId,
                 firstName = firstName.trim(),
                 lastName = lastName.trim(),
-                email = email.trim().lowercase(),
+                email = email?.trim()?.lowercase(),
                 phone = phone.trim(),
-                alternatePhone = alternatePhone?.trim(),
-                address = address,
-                communicationPreference = communicationPreference
+                address = address
             )
         }
     }
@@ -71,13 +57,10 @@ data class Guardian(
         lastName: String,
         email: String,
         phone: String,
-        alternatePhone: String?,
         address: Address,
-        communicationPreference: CommunicationPreference
     ): Guardian {
         require(firstName.isNotBlank()) { "First name is required" }
         require(lastName.isNotBlank()) { "Last name is required" }
-        require(email.isNotBlank()) { "Email is required" }
         require(email.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"))) {
             "Invalid email format"
         }
@@ -88,9 +71,7 @@ data class Guardian(
             lastName = lastName.trim(),
             email = email.trim().lowercase(),
             phone = phone.trim(),
-            alternatePhone = alternatePhone?.trim(),
             address = address,
-            communicationPreference = communicationPreference
         )
     }
 }

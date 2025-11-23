@@ -3,11 +3,7 @@ package pl.sienkiewiczmaciej.routecrm.driver.infrastructure
 import jakarta.persistence.*
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import pl.sienkiewiczmaciej.routecrm.driver.domain.Driver
-import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
-import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverStatus
-import pl.sienkiewiczmaciej.routecrm.driver.domain.DrivingLicense
-import pl.sienkiewiczmaciej.routecrm.driver.domain.MedicalCertificate
+import pl.sienkiewiczmaciej.routecrm.driver.domain.*
 import pl.sienkiewiczmaciej.routecrm.guardian.infrastructure.AddressEmbeddable
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import java.time.Instant

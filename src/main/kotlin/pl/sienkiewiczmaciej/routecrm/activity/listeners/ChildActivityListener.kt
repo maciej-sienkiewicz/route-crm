@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import pl.sienkiewiczmaciej.routecrm.absence.domain.events.AbsenceCreatedEvent
 import pl.sienkiewiczmaciej.routecrm.activity.domain.*
+import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteDeletedEvent
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteScheduleAddedEvent
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteStopExecutedEvent
 
@@ -51,6 +52,37 @@ class ChildActivityListener(
             logger.debug("Activity log created for Child assigned to route: ${event.child.id.value}")
         } catch (e: Exception) {
             logger.error("Failed to create activity log for Child assigned to route", e)
+        }
+    }
+
+    @EventListener
+    @Async
+    fun onRouteDeleted(event: RouteDeletedEvent) = runBlocking {
+        try {
+            event
+                .affectedChildren
+                .forEach {
+                    ActivityLog.create(
+                        companyId = event.companyId,
+                        category = ActivityCategory.CHILD,
+                        activityType = ActivityType.ROUTE_DELETED,
+                        aggregateId = it.value,
+                        aggregateType = "Child",
+                        title = "Usunięto trasę do której było przypisane dziecko",
+                        description = "Trasa do której było przypisane dziecko została usunięta.",
+                        performedBy = ActivityPerformer.fromPrincipal(event.createdBy.userId, event.createdBy.firstName, event.createdBy.lastName, event.createdBy.role.name),
+                        details = ActivityDetails.of(
+                            "Nazwa trasy" to event.routeName,
+                            "Planowana data trasy" to event.date
+                        ),
+                        metadata = ActivityMetadata.of(
+                            "routeId" to event.routeId.value,
+                        ),
+                        eventId = event.eventId
+                    )
+                }
+        } catch (e: Exception) {
+            logger.error("Failed to create activity log for route deleted", e)
         }
     }
 

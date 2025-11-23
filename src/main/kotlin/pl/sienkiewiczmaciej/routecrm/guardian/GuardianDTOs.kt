@@ -7,7 +7,6 @@ import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import pl.sienkiewiczmaciej.routecrm.guardian.create.CreateGuardianCommand
 import pl.sienkiewiczmaciej.routecrm.guardian.create.CreateGuardianResult
-import pl.sienkiewiczmaciej.routecrm.guardian.domain.CommunicationPreference
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianId
 import pl.sienkiewiczmaciej.routecrm.guardian.getbyid.GuardianDetail
 import pl.sienkiewiczmaciej.routecrm.guardian.list.GuardianListItem
@@ -73,20 +72,15 @@ data class CreateGuardianRequest(
     @field:Size(min = 1, max = 255)
     val lastName: String,
 
-    @field:NotBlank(message = "Email is required")
     @field:Email(message = "Invalid email format")
     @field:Size(max = 255)
-    val email: String,
+    val email: String?,
 
     @field:NotBlank(message = "Phone is required")
     val phone: String,
 
-    val alternatePhone: String?,
-
     @field:Valid
-    val address: AddressRequest,
-
-    val communicationPreference: CommunicationPreference = CommunicationPreference.SMS
+    val address: AddressRequest?,
 ) {
     fun toCommand(companyId: CompanyId) = CreateGuardianCommand(
         companyId = companyId,
@@ -94,9 +88,7 @@ data class CreateGuardianRequest(
         lastName = lastName,
         email = email,
         phone = phone,
-        alternatePhone = alternatePhone,
-        address = address.toDomain(),
-        communicationPreference = communicationPreference
+        address = address?.toDomain(),
     )
 }
 
@@ -105,11 +97,9 @@ data class GuardianResponse(
     val companyId: String,
     val firstName: String,
     val lastName: String,
-    val email: String,
+    val email: String?,
     val phone: String,
-    val alternatePhone: String?,
-    val address: AddressResponse,
-    val communicationPreference: CommunicationPreference,
+    val address: AddressResponse?,
     val childrenCount: Int,
     val createdAt: Instant
 ) {
@@ -121,9 +111,7 @@ data class GuardianResponse(
             lastName = result.lastName,
             email = result.email,
             phone = result.phone,
-            alternatePhone = result.alternatePhone,
-            address = AddressResponse.from(result.address),
-            communicationPreference = result.communicationPreference,
+            address = result.address?.let { AddressResponse.from(it) } ,
             childrenCount = 0,
             createdAt = Instant.now()
         )
@@ -134,7 +122,7 @@ data class GuardianListResponse(
     val id: String,
     val firstName: String,
     val lastName: String,
-    val email: String,
+    val email: String?,
     val phone: String,
     val childrenCount: Int
 ) {
@@ -155,11 +143,9 @@ data class GuardianDetailResponse(
     val companyId: String,
     val firstName: String,
     val lastName: String,
-    val email: String,
+    val email: String?,
     val phone: String,
-    val alternatePhone: String?,
-    val address: AddressResponse,
-    val communicationPreference: CommunicationPreference,
+    val address: AddressResponse?,
     val children: List<ChildInfoResponse>,
     val createdAt: Instant,
     val updatedAt: Instant
@@ -172,9 +158,7 @@ data class GuardianDetailResponse(
             lastName = detail.lastName,
             email = detail.email,
             phone = detail.phone,
-            alternatePhone = detail.alternatePhone,
-            address = AddressResponse.from(detail.address),
-            communicationPreference = detail.communicationPreference,
+            address = detail.address?.let { AddressResponse.from(it) } ,
             children = detail.children.map { ChildInfoResponse.from(it) },
             createdAt = Instant.now(),
             updatedAt = Instant.now()
@@ -225,9 +209,7 @@ data class UpdateGuardianRequest(
 
     @field:Valid
     val address: AddressRequest,
-
-    val communicationPreference: CommunicationPreference
-) {
+    ) {
     fun toCommand(companyId: CompanyId, id: GuardianId) = UpdateGuardianCommand(
         companyId = companyId,
         id = id,
@@ -237,7 +219,6 @@ data class UpdateGuardianRequest(
         phone = phone,
         alternatePhone = alternatePhone,
         address = address.toDomain(),
-        communicationPreference = communicationPreference
     )
 }
 
@@ -245,7 +226,7 @@ data class UpdateGuardianResponse(
     val id: String,
     val firstName: String,
     val lastName: String,
-    val email: String,
+    val email: String?,
     val updatedAt: Instant
 ) {
     companion object {
