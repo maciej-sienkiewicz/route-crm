@@ -17,6 +17,8 @@ import java.time.LocalTime
 
 // src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteEntities.kt
 
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteEntity.kt
+
 @Entity
 @Table(
     name = "routes",
@@ -42,8 +44,8 @@ class RouteEntity(
     @Column(nullable = false)
     val date: LocalDate,
 
-    @Column(name = "driver_id", nullable = false, length = 50)
-    val driverId: String,
+    @Column(name = "driver_id", length = 50) // ← ZMIENIONE: usunięte nullable = false
+    val driverId: String?,
 
     @Column(name = "vehicle_id", nullable = false, length = 50)
     val vehicleId: String,
@@ -64,13 +66,11 @@ class RouteEntity(
     @Column(name = "actual_end_time")
     val actualEndTime: Instant?,
 
-    // ========== NOWE POLA ==========
     @Column(name = "series_id", length = 50)
-    val seriesId: String?,  // ← DODANE
+    val seriesId: String?,
 
     @Column(name = "series_occurrence_date")
-    val seriesOccurrenceDate: LocalDate?,  // ← DODANE
-    // ================================
+    val seriesOccurrenceDate: LocalDate?,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
@@ -83,15 +83,15 @@ class RouteEntity(
         companyId = CompanyId(companyId),
         routeName = routeName,
         date = date,
-        driverId = DriverId(driverId),
+        driverId = driverId?.let { DriverId(it) }, // ← ZMIENIONE: mapowanie nullable
         vehicleId = VehicleId(vehicleId),
         estimatedStartTime = estimatedStartTime,
         estimatedEndTime = estimatedEndTime,
         status = status,
         actualStartTime = actualStartTime,
         actualEndTime = actualEndTime,
-        seriesId = seriesId?.let { RouteSeriesId(it) },  // ← DODANE
-        seriesOccurrenceDate = seriesOccurrenceDate,      // ← DODANE
+        seriesId = seriesId?.let { RouteSeriesId(it) },
+        seriesOccurrenceDate = seriesOccurrenceDate,
         createdAt = createdAt
     )
 
@@ -101,16 +101,15 @@ class RouteEntity(
             companyId = route.companyId.value,
             routeName = route.routeName,
             date = route.date,
-            driverId = route.driverId.value,
+            driverId = route.driverId?.value, // ← ZMIENIONE: mapowanie nullable
             vehicleId = route.vehicleId.value,
             estimatedStartTime = route.estimatedStartTime,
             estimatedEndTime = route.estimatedEndTime,
             status = route.status,
             actualStartTime = route.actualStartTime,
             actualEndTime = route.actualEndTime,
-            seriesId = route.seriesId?.value,              // ← DODANE
-            seriesOccurrenceDate = route.seriesOccurrenceDate,  // ← DODANE
-            createdAt = route.createdAt
+            seriesId = route.seriesId?.value,
+            seriesOccurrenceDate = route.seriesOccurrenceDate
         )
     }
 }

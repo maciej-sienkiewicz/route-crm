@@ -14,7 +14,7 @@ import pl.sienkiewiczmaciej.routecrm.vehicle.domain.Vehicle
  * All data is loaded once by ValidationContextBuilder to avoid N+1 queries.
  */
 data class CreateRouteValidationContext(
-    val driver: Driver,
+    val driver: Driver?,
     val vehicle: Vehicle,
     val children: Map<ChildId, Child>,
     val schedules: Map<ScheduleId, Schedule>,

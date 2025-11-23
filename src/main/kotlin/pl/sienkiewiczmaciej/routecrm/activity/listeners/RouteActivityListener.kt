@@ -36,7 +36,7 @@ class RouteActivityListener(
                 metadata = ActivityMetadata.of(
                     "routeName" to event.routeName,
                     "date" to event.date.toString(),
-                    "driverId" to event.driverId.value,
+                    "driverId" to event.driverId?.value,
                     "vehicleId" to event.vehicleId.value
                 ),
                 eventId = event.eventId

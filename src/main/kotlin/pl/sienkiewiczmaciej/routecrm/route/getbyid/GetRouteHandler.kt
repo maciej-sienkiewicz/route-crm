@@ -62,9 +62,9 @@ data class RouteDetail(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driverId: DriverId,
-    val driverFirstName: String,
-    val driverLastName: String,
+    val driverId: DriverId?,
+    val driverFirstName: String?,
+    val driverLastName: String?,
     val vehicleId: VehicleId,
     val vehicleRegistrationNumber: String,
     val vehicleModel: String,
@@ -134,8 +134,10 @@ class GetRouteHandler(
     ): RouteDetail = withContext(Dispatchers.IO) {
         // Parallel data loading
         val driverDeferred = async {
-            driverRepository.findByIdAndCompanyId(route.driverId.value, query.companyId.value)
-                ?: throw NotFoundException("Driver ${route.driverId.value} not found")
+            route.driverId?.let { driverId ->
+                driverRepository.findByIdAndCompanyId(driverId.value, query.companyId.value)
+                    ?: throw NotFoundException("Driver ${driverId.value} not found")
+            }
         }
 
         val vehicleDeferred = async {
@@ -174,8 +176,8 @@ class GetRouteHandler(
             date = route.date,
             status = route.status,
             driverId = route.driverId,
-            driverFirstName = driver.firstName,
-            driverLastName = driver.lastName,
+            driverFirstName = driver?.firstName,
+            driverLastName = driver?.lastName,
             vehicleId = route.vehicleId,
             vehicleRegistrationNumber = vehicle.registrationNumber,
             vehicleModel = vehicle.model,

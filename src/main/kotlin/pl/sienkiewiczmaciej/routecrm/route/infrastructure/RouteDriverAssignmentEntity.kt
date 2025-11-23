@@ -30,8 +30,8 @@ class RouteDriverAssignmentEntity(
     @Column(name = "route_id", nullable = false, length = 50)
     val routeId: String,
 
-    @Column(name = "previous_driver_id", nullable = false, length = 50)
-    val previousDriverId: String,
+    @Column(name = "previous_driver_id", nullable = true, length = 50)
+    val previousDriverId: String?,
 
     @Column(name = "new_driver_id", nullable = false, length = 50)
     val newDriverId: String,
@@ -49,7 +49,7 @@ class RouteDriverAssignmentEntity(
         id = RouteDriverAssignmentId(id),
         companyId = CompanyId(companyId),
         routeId = RouteId(routeId),
-        previousDriverId = DriverId(previousDriverId),
+        previousDriverId = previousDriverId?.let { DriverId(it) } ,
         newDriverId = DriverId(newDriverId),
         reassignedBy = UserId(reassignedBy),
         reassignedAt = reassignedAt,
@@ -61,7 +61,7 @@ class RouteDriverAssignmentEntity(
             id = assignment.id.value,
             companyId = assignment.companyId.value,
             routeId = assignment.routeId.value,
-            previousDriverId = assignment.previousDriverId.value,
+            previousDriverId = assignment.previousDriverId?.value,
             newDriverId = assignment.newDriverId.value,
             reassignedBy = assignment.reassignedBy.value,
             reassignedAt = assignment.reassignedAt,

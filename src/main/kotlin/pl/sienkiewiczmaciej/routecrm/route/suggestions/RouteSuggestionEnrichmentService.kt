@@ -30,7 +30,7 @@ data class RouteSuggestionDetail(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driver: DriverSimple,
+    val driver: DriverSimple?,
     val vehicle: VehicleSimple,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
@@ -101,10 +101,12 @@ class RouteSuggestionEnrichmentService(
         route: Route,
         companyId: CompanyId
     ): RouteSuggestionDetail = withContext(Dispatchers.IO) {
-        val driver = driverRepository.findByIdAndCompanyId(
-            route.driverId.value,
-            companyId.value
-        )
+        val driver = route.driverId?.let { driverId ->
+            driverRepository.findByIdAndCompanyId(
+                driverId.value,
+                companyId.value
+            )
+        }
 
         val vehicle = vehicleRepository.findByIdAndCompanyId(
             route.vehicleId.value,
@@ -127,11 +129,13 @@ class RouteSuggestionEnrichmentService(
             routeName = route.routeName,
             date = route.date,
             status = route.status,
-            driver = DriverSimple(
-                id = route.driverId,
-                firstName = driver?.firstName ?: "",
-                lastName = driver?.lastName ?: ""
-            ),
+            driver = if (route.driverId != null) { // ← ZMIENIONE: mapowanie nullable
+                DriverSimple(
+                    id = route.driverId,
+                    firstName = driver?.firstName ?: "",
+                    lastName = driver?.lastName ?: ""
+                )
+            } else null,
             vehicle = VehicleSimple(
                 id = route.vehicleId,
                 registrationNumber = vehicle?.registrationNumber ?: "",

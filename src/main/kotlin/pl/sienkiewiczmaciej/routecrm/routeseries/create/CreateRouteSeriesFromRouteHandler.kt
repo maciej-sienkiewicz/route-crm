@@ -4,6 +4,7 @@ package pl.sienkiewiczmaciej.routecrm.routeseries.create
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildId
+import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteNotFoundException
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
@@ -29,7 +30,8 @@ data class CreateRouteSeriesFromRouteCommand(
     val seriesName: String,
     val recurrenceInterval: Int,
     val startDate: LocalDate,
-    val endDate: LocalDate?
+    val endDate: LocalDate?,
+    val overrideDriverId: DriverId? = null // ← NOWE: opcjonalne nadpisanie kierowcy
 )
 
 data class CreateSeriesFromRouteResult(
@@ -100,11 +102,13 @@ class CreateRouteSeriesFromRouteHandler(
             dayOfWeek = command.startDate.dayOfWeek
         )
 
+        val finalDriverId = command.overrideDriverId ?: sourceRoute.driverId
+
         val series = RouteSeries.create(
             companyId = command.companyId,
             seriesName = command.seriesName,
             routeNameTemplate = sourceRoute.routeName,
-            driverId = sourceRoute.driverId,
+            driverId = finalDriverId,
             vehicleId = sourceRoute.vehicleId,
             estimatedStartTime = sourceRoute.estimatedStartTime,
             estimatedEndTime = sourceRoute.estimatedEndTime,

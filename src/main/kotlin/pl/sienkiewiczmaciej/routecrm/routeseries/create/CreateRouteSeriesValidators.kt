@@ -51,7 +51,7 @@ class SourceRouteStatusValidator {
 @Component
 class SeriesDriverStatusValidator {
     fun validate(context: CreateRouteSeriesValidationContext) {
-        require(context.driver.status == DriverStatus.ACTIVE) {
+        require(context.driver == null || context.driver.status == DriverStatus.ACTIVE) {
             "Driver must be ACTIVE to create series"
         }
     }

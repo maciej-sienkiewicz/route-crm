@@ -90,7 +90,7 @@ class ReassignDriverForSeriesHandler(
         // 5. Return result
         return ReassignDriverForSeriesResult(
             seriesId = series.id,
-            previousDriverId = previousDriverId,
+            previousDriverId = previousDriverId!!,
             newDriverId = command.newDriverId,
             futureRoutesUpdated = futureRoutes.size
         )

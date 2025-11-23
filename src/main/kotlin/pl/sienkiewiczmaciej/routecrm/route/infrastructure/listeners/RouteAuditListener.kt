@@ -23,7 +23,7 @@ class RouteAuditListener {
             event.routeId.value,
             event.routeName,
             event.date,
-            event.driverId.value,
+            event.driverId?.value,
             event.vehicleId.value,
             event.createdByName
         )

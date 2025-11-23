@@ -90,8 +90,7 @@ data class CreateRouteRequest(
     @field:NotNull(message = "Date is required")
     val date: LocalDate,
 
-    @field:NotBlank(message = "Driver ID is required")
-    val driverId: String,
+    val driverId: String?, // ← ZMIENIONE: nullable, bez @NotBlank
 
     @field:NotBlank(message = "Vehicle ID is required")
     val vehicleId: String,
@@ -112,7 +111,7 @@ data class CreateRouteRequest(
         companyId = companyId,
         routeName = routeName,
         date = date,
-        driverId = DriverId.from(driverId),
+        driverId = driverId?.let { if(it.isBlank()) null else DriverId.from(it) }, // ← ZMIENIONE: mapowanie nullable
         vehicleId = VehicleId.from(vehicleId),
         estimatedStartTime = estimatedStartTime,
         estimatedEndTime = estimatedEndTime,
@@ -173,7 +172,7 @@ data class RouteListResponse(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driver: DriverSimpleResponse,
+    val driver: DriverSimpleResponse?,
     val vehicle: VehicleSimpleResponse,
     @JsonFormat(pattern = "HH:mm")
     val estimatedStartTime: LocalTime,
@@ -187,11 +186,13 @@ data class RouteListResponse(
             routeName = item.routeName,
             date = item.date,
             status = item.status,
-            driver = DriverSimpleResponse(
-                id = item.driverId.value,
-                firstName = item.driverFirstName,
-                lastName = item.driverLastName
-            ),
+            driver = if (item.driverId != null) { // ← ZMIENIONE
+                DriverSimpleResponse(
+                    id = item.driverId.value,
+                    firstName = item.driverFirstName,
+                    lastName = item.driverLastName
+                )
+            } else null,
             vehicle = VehicleSimpleResponse(
                 id = item.vehicleId.value,
                 registrationNumber = item.vehicleRegistrationNumber,
@@ -245,7 +246,7 @@ data class RouteDetailResponse(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driver: DriverSimpleResponse,
+    val driver: DriverSimpleResponse?,
     val vehicle: VehicleSimpleResponse,
     @JsonFormat(pattern = "HH:mm")
     val estimatedStartTime: LocalTime,
@@ -266,11 +267,13 @@ data class RouteDetailResponse(
             routeName = detail.routeName,
             date = detail.date,
             status = detail.status,
-            driver = DriverSimpleResponse(
-                id = detail.driverId.value,
-                firstName = detail.driverFirstName,
-                lastName = detail.driverLastName
-            ),
+            driver = if (detail.driverId != null) { // ← ZMIENIONE: mapowanie nullable
+                DriverSimpleResponse(
+                    id = detail.driverId.value,
+                    firstName = detail.driverFirstName ?: "",
+                    lastName = detail.driverLastName ?: ""
+                )
+            } else null,
             vehicle = VehicleSimpleResponse(
                 id = detail.vehicleId.value,
                 registrationNumber = detail.vehicleRegistrationNumber,
@@ -712,7 +715,7 @@ data class RouteHistoryResponse(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driver: DriverSimpleResponse,
+    val driver: DriverSimpleResponse?,
     val vehicle: VehicleSimpleResponse,
     @JsonFormat(pattern = "HH:mm")
     val estimatedStartTime: LocalTime,
@@ -729,11 +732,13 @@ data class RouteHistoryResponse(
             routeName = item.routeName,
             date = item.date,
             status = item.status,
-            driver = DriverSimpleResponse(
-                id = item.driverId.value,
-                firstName = item.driverFirstName,
-                lastName = item.driverLastName
-            ),
+            driver = if (item.driverId != null) { // ← ZMIENIONE
+                DriverSimpleResponse(
+                    id = item.driverId.value,
+                    firstName = item.driverFirstName,
+                    lastName = item.driverLastName
+                )
+            } else null,
             vehicle = VehicleSimpleResponse(
                 id = item.vehicleId.value,
                 registrationNumber = item.vehicleRegistrationNumber,
@@ -754,7 +759,7 @@ data class UpcomingRouteResponse(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driver: DriverSimpleResponse,
+    val driver: DriverSimpleResponse?,
     val vehicle: VehicleSimpleResponse,
     @JsonFormat(pattern = "HH:mm")
     val estimatedStartTime: LocalTime,
@@ -769,11 +774,13 @@ data class UpcomingRouteResponse(
             routeName = item.routeName,
             date = item.date,
             status = item.status,
-            driver = DriverSimpleResponse(
-                id = item.driverId.value,
-                firstName = item.driverFirstName,
-                lastName = item.driverLastName
-            ),
+            driver = if (item.driverId != null) { // ← ZMIENIONE
+                DriverSimpleResponse(
+                    id = item.driverId.value,
+                    firstName = item.driverFirstName,
+                    lastName = item.driverLastName
+                )
+            } else null,
             vehicle = VehicleSimpleResponse(
                 id = item.vehicleId.value,
                 registrationNumber = item.vehicleRegistrationNumber,
@@ -819,7 +826,7 @@ data class RouteSuggestionResponse(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driver: DriverSimpleResponse,
+    val driver: DriverSimpleResponse?,
     val vehicle: VehicleSimpleResponse,
     @JsonFormat(pattern = "HH:mm")
     val estimatedStartTime: LocalTime,
@@ -836,11 +843,13 @@ data class RouteSuggestionResponse(
             routeName = detail.routeName,
             date = detail.date,
             status = detail.status,
-            driver = DriverSimpleResponse(
-                id = detail.driver.id.value,
-                firstName = detail.driver.firstName,
-                lastName = detail.driver.lastName
-            ),
+            driver = if (detail.driver != null) { // ← ZMIENIONE
+                DriverSimpleResponse(
+                    id = detail.driver.id.value,
+                    firstName = detail.driver.firstName,
+                    lastName = detail.driver.lastName,
+                )
+            } else null,
             vehicle = VehicleSimpleResponse(
                 id = detail.vehicle.id.value,
                 registrationNumber = detail.vehicle.registrationNumber,
@@ -912,7 +921,7 @@ data class ReassignDriverRequest(
 
 data class ReassignDriverResponse(
     val routeId: String,
-    val previousDriverId: String,
+    val previousDriverId: String?,
     val newDriverId: String,
     val status: RouteStatus,
     val assignmentId: String,
@@ -921,7 +930,7 @@ data class ReassignDriverResponse(
     companion object {
         fun from(result: ReassignDriverResult) = ReassignDriverResponse(
             routeId = result.routeId.value,
-            previousDriverId = result.previousDriverId.value,
+            previousDriverId = result.previousDriverId?.value,
             newDriverId = result.newDriverId.value,
             status = result.status,
             assignmentId = result.assignmentId.value,

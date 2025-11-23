@@ -27,7 +27,7 @@ class RouteFactory {
             companyId = command.companyId,
             routeName = command.routeName,
             date = command.date,
-            driverId = context.driver.id,
+            driverId = context.driver?.id,
             vehicleId = context.vehicle.id,
             estimatedStartTime = command.estimatedStartTime,
             estimatedEndTime = command.estimatedEndTime

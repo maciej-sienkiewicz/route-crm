@@ -39,10 +39,12 @@ class UpcomingRoutesEnrichmentService(
         companyId: CompanyId,
         scheduleId: ScheduleId
     ): UpcomingRouteItem {
-        val driver = driverRepository.findByIdAndCompanyId(
-            route.driverId.value,
-            companyId.value
-        )
+        val driver = route.driverId?.let { driverId ->
+            driverRepository.findByIdAndCompanyId(
+                driverId.value,
+                companyId.value
+            )
+        }
 
         val vehicle = vehicleRepository.findByIdAndCompanyId(
             route.vehicleId.value,

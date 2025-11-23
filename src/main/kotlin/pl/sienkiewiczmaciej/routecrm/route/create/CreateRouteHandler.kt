@@ -33,7 +33,7 @@ data class CreateRouteCommand(
     val companyId: CompanyId,
     val routeName: String,
     val date: LocalDate,
-    val driverId: DriverId,
+    val driverId: DriverId?, // ← ZMIENIONE: nullable
     val vehicleId: VehicleId,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
@@ -46,7 +46,7 @@ data class CreateRouteResult(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driverId: DriverId,
+    val driverId: DriverId?, // ← ZMIENIONE: nullable
     val vehicleId: VehicleId,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,

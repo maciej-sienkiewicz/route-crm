@@ -30,7 +30,8 @@ data class CreateRouteSeriesFromRouteRequest(
     @field:NotBlank val seriesName: String,
     @field:NotNull @field:Min(1) @field:Max(4) val recurrenceInterval: Int,
     @field:NotNull val startDate: LocalDate,
-    val endDate: LocalDate?
+    val endDate: LocalDate?,
+    val driverId: String? = null
 ) {
     fun toCommand(companyId: CompanyId, sourceRouteId: RouteId) =
         CreateRouteSeriesFromRouteCommand(
@@ -39,7 +40,8 @@ data class CreateRouteSeriesFromRouteRequest(
             seriesName = seriesName,
             recurrenceInterval = recurrenceInterval,
             startDate = startDate,
-            endDate = endDate
+            endDate = endDate,
+            overrideDriverId = driverId?.let { DriverId.from(it) }
         )
 }
 
@@ -64,7 +66,7 @@ data class RouteSeriesResponse(
     val companyId: String,
     val seriesName: String,
     val routeNameTemplate: String,
-    val driverId: String,
+    val driverId: String?, // ← ZMIENIONE: nullable
     val vehicleId: String,
     @JsonFormat(pattern = "HH:mm")
     val estimatedStartTime: LocalTime,
@@ -86,7 +88,7 @@ data class RouteSeriesResponse(
             companyId = series.companyId.value,
             seriesName = series.seriesName,
             routeNameTemplate = series.routeNameTemplate,
-            driverId = series.driverId.value,
+            driverId = series.driverId?.value, // ← ZMIENIONE: mapowanie nullable
             vehicleId = series.vehicleId.value,
             estimatedStartTime = series.estimatedStartTime,
             estimatedEndTime = series.estimatedEndTime,

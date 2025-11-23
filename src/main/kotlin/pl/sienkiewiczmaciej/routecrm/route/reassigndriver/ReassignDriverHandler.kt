@@ -23,7 +23,7 @@ data class ReassignDriverCommand(
 
 data class ReassignDriverResult(
     val routeId: RouteId,
-    val previousDriverId: DriverId,
+    val previousDriverId: DriverId?,
     val newDriverId: DriverId,
     val status: RouteStatus,
     val assignmentId: RouteDriverAssignmentId
@@ -73,7 +73,7 @@ class ReassignDriverHandler(
         val assignment = RouteDriverAssignment.create(
             companyId = command.companyId,
             routeId = command.routeId,
-            previousDriverId = previousDriverId!!,
+            previousDriverId = previousDriverId,
             newDriverId = command.newDriverId,
             reassignedBy = principal.userId,
             reason = command.reason

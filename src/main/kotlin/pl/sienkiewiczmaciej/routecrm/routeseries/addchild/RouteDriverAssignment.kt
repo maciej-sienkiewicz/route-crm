@@ -24,7 +24,7 @@ data class RouteDriverAssignment(
     val id: RouteDriverAssignmentId,
     val companyId: CompanyId,
     val routeId: RouteId,
-    val previousDriverId: DriverId,
+    val previousDriverId: DriverId?,
     val newDriverId: DriverId,
     val reassignedBy: UserId,
     val reassignedAt: Instant,
@@ -34,7 +34,7 @@ data class RouteDriverAssignment(
         fun create(
             companyId: CompanyId,
             routeId: RouteId,
-            previousDriverId: DriverId,
+            previousDriverId: DriverId?,
             newDriverId: DriverId,
             reassignedBy: UserId,
             reason: String? = null

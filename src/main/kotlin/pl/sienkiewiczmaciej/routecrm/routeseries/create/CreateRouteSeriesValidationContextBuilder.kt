@@ -41,8 +41,10 @@ class CreateRouteSeriesValidationContextBuilder(
         }
 
         val driverDeferred = async {
-            driverRepository.findById(command.companyId, route.driverId)
-                ?: throw DriverNotFoundException(route.driverId)
+            route.driverId?.let { driverId ->
+                driverRepository.findById(command.companyId, route.driverId)
+                    ?: throw DriverNotFoundException(route.driverId)
+            }
         }
 
         val vehicleDeferred = async {

@@ -29,7 +29,7 @@ class StopOrderValidator {
 @Component
 class DriverStatusValidator {
     fun validate(context: CreateRouteValidationContext) {
-        require(context.driver.status == DriverStatus.ACTIVE) {
+        require(context.driver == null || context.driver.status == DriverStatus.ACTIVE) {
             "Driver must be ACTIVE to be assigned to a route"
         }
     }
@@ -41,6 +41,10 @@ class DriverStatusValidator {
 @Component
 class DriverConflictValidator {
     fun validate(command: CreateRouteCommand, context: CreateRouteValidationContext) {
+        if(command.driverId == null) {
+            return
+        }
+
         val hasConflict = context.existingDriverRoutes.any { existingRoute ->
             // Check time overlap
             command.estimatedStartTime < existingRoute.estimatedEndTime &&
@@ -49,7 +53,7 @@ class DriverConflictValidator {
 
         if (hasConflict) {
             throw IllegalArgumentException(
-                "Driver ${command.driverId.value} already has a route at this time on ${command.date}"
+                "Driver ${command.driverId} already has a route at this time on ${command.date}"
             )
         }
     }

@@ -29,20 +29,22 @@ enum class RouteStatus {
     DRIVER_MISSING
 }
 
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/domain/RouteDomainModels.kt
+
 data class Route(
     val id: RouteId,
     val companyId: CompanyId,
     val routeName: String,
     val date: LocalDate,
-    val driverId: DriverId,
+    val driverId: DriverId?, // ← ZMIENIONE: nullable
     val vehicleId: VehicleId,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
     val status: RouteStatus,
     val actualStartTime: Instant? = null,
     val actualEndTime: Instant? = null,
-    val seriesId: RouteSeriesId? = null,           // ← DODANE
-    val seriesOccurrenceDate: LocalDate? = null,   // ← DODANE
+    val seriesId: RouteSeriesId? = null,
+    val seriesOccurrenceDate: LocalDate? = null,
     val createdAt: Instant = Instant.now()
 ) {
     companion object {
@@ -50,17 +52,24 @@ data class Route(
             companyId: CompanyId,
             routeName: String,
             date: LocalDate,
-            driverId: DriverId,
+            driverId: DriverId?, // ← ZMIENIONE: nullable
             vehicleId: VehicleId,
             estimatedStartTime: LocalTime,
             estimatedEndTime: LocalTime,
-            seriesId: RouteSeriesId? = null,           // ← DODANE
-            seriesOccurrenceDate: LocalDate? = null    // ← DODANE
+            seriesId: RouteSeriesId? = null,
+            seriesOccurrenceDate: LocalDate? = null
         ): Route {
             require(routeName.isNotBlank()) { "Route name is required" }
             require(routeName.length <= 255) { "Route name too long" }
             require(estimatedEndTime.isAfter(estimatedStartTime)) {
                 "End time must be after start time"
+            }
+
+            // ← ZMIENIONE: status zależy od obecności kierowcy
+            val initialStatus = if (driverId == null) {
+                RouteStatus.DRIVER_MISSING
+            } else {
+                RouteStatus.PLANNED
             }
 
             return Route(
@@ -72,14 +81,18 @@ data class Route(
                 vehicleId = vehicleId,
                 estimatedStartTime = estimatedStartTime,
                 estimatedEndTime = estimatedEndTime,
-                status = RouteStatus.PLANNED,
-                seriesId = seriesId,                    // ← DODANE
-                seriesOccurrenceDate = seriesOccurrenceDate  // ← DODANE
+                status = initialStatus, // ← ZMIENIONE
+                seriesId = seriesId,
+                seriesOccurrenceDate = seriesOccurrenceDate
             )
         }
     }
 
     fun start(timestamp: Instant): Route {
+        // ← ZMIENIONE: wymaga kierowcy do startu
+        require(driverId != null) {
+            "Cannot start route without assigned driver"
+        }
         require(status == RouteStatus.PLANNED) {
             "Route must be in PLANNED status to start"
         }
@@ -104,14 +117,14 @@ data class Route(
     }
 
     fun cancel(): Route {
-        require(status in listOf(RouteStatus.PLANNED, RouteStatus.IN_PROGRESS)) {
-            "Only PLANNED or IN_PROGRESS routes can be cancelled"
+        require(status in listOf(RouteStatus.PLANNED, RouteStatus.IN_PROGRESS, RouteStatus.DRIVER_MISSING)) {
+            "Only PLANNED, IN_PROGRESS or DRIVER_MISSING routes can be cancelled"
         }
         return copy(status = RouteStatus.CANCELLED)
     }
 
     fun canDeleteStops(): Boolean {
-        return status == RouteStatus.PLANNED
+        return status in listOf(RouteStatus.PLANNED, RouteStatus.DRIVER_MISSING)
     }
 
     fun reassignDriver(newDriverId: DriverId): Route {
@@ -128,12 +141,30 @@ data class Route(
         )
     }
 
+    // ← NOWE: metoda do przypisania kierowcy po raz pierwszy
+    fun assignDriver(newDriverId: DriverId): Route {
+        require(driverId == null) {
+            "Route already has a driver assigned"
+        }
+        require(status == RouteStatus.DRIVER_MISSING) {
+            "Can only assign driver to routes with DRIVER_MISSING status"
+        }
+
+        return copy(
+            driverId = newDriverId,
+            status = RouteStatus.PLANNED
+        )
+    }
+
     fun markDriverMissing(): Route {
         require(status == RouteStatus.PLANNED) {
             "Can only mark PLANNED routes as DRIVER_MISSING"
         }
 
-        return copy(status = RouteStatus.DRIVER_MISSING)
+        return copy(
+            driverId = null, // ← ZMIENIONE: usuwamy kierowcy
+            status = RouteStatus.DRIVER_MISSING
+        )
     }
 }
 

@@ -38,7 +38,7 @@ data class RouteListItem(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driverId: DriverId,
+    val driverId: DriverId?,
     val driverFirstName: String,
     val driverLastName: String,
     val vehicleId: VehicleId,
@@ -113,10 +113,12 @@ class ListRoutesHandler(
     ): List<RouteListItem> = withContext(Dispatchers.IO) {
         routes.content.map { route ->
             async {
-                val driver = driverRepository.findByIdAndCompanyId(
-                    route.driverId.value,
-                    companyId.value
-                )
+                val driver = route.driverId?.let { driverId ->
+                    driverRepository.findByIdAndCompanyId(
+                        driverId.value,
+                        companyId.value
+                    )
+                }
 
                 val vehicle = vehicleRepository.findByIdAndCompanyId(
                     route.vehicleId.value,

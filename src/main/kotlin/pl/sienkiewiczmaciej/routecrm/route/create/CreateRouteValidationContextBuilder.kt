@@ -33,8 +33,10 @@ class CreateRouteValidationContextBuilder(
 
         // Parallel data loading
         val driverDeferred = async {
-            driverRepository.findById(command.companyId, command.driverId)
-                ?: throw DriverNotFoundException(command.driverId)
+            command.driverId?.let { driverId ->
+                driverRepository.findById(command.companyId, driverId)
+                    ?: throw DriverNotFoundException(driverId)
+            }
         }
 
         val vehicleDeferred = async {
@@ -57,13 +59,15 @@ class CreateRouteValidationContextBuilder(
         }
 
         val existingDriverRoutesDeferred = async {
-            routeRepository.findAll(
-                companyId = command.companyId,
-                date = command.date,
-                status = null,
-                driverId = command.driverId,
-                pageable = org.springframework.data.domain.Pageable.unpaged()
-            ).content.filter { it.status in listOf(RouteStatus.PLANNED, RouteStatus.IN_PROGRESS) }
+            command.driverId?.let { driverId ->
+                routeRepository.findAll(
+                    companyId = command.companyId,
+                    date = command.date,
+                    status = null,
+                    driverId = driverId,
+                    pageable = org.springframework.data.domain.Pageable.unpaged()
+                ).content.filter { it.status in listOf(RouteStatus.PLANNED, RouteStatus.IN_PROGRESS) }
+            } ?: emptyList()
         }
 
         val existingVehicleRoutesDeferred = async {
@@ -81,7 +85,7 @@ class CreateRouteValidationContextBuilder(
 
         // Await all results
         CreateRouteValidationContext(
-            driver = driverDeferred.await(),
+            driver = driverDeferred.await(), // ← może być null
             vehicle = vehicleDeferred.await(),
             children = childrenDeferred.await(),
             schedules = schedulesDeferred.await(),

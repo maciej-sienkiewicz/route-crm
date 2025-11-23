@@ -7,7 +7,10 @@ import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
-import pl.sienkiewiczmaciej.routecrm.route.domain.*
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
+import pl.sienkiewiczmaciej.routecrm.route.domain.StopType
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -29,7 +32,7 @@ data class UpcomingRouteItem(
     val routeName: String,
     val date: LocalDate,
     val status: RouteStatus,
-    val driverId: DriverId,
+    val driverId: DriverId?,
     val driverFirstName: String,
     val driverLastName: String,
     val vehicleId: VehicleId,

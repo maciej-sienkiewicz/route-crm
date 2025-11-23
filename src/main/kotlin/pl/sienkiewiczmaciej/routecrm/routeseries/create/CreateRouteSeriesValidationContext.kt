@@ -13,7 +13,7 @@ import pl.sienkiewiczmaciej.routecrm.vehicle.domain.Vehicle
 data class CreateRouteSeriesValidationContext(
     val sourceRoute: Route,
     val sourceRouteStops: List<RouteStop>,
-    val driver: Driver,
+    val driver: Driver?,
     val vehicle: Vehicle,
     val children: Map<ChildId, Child>,
     val schedules: Map<ScheduleId, Schedule>

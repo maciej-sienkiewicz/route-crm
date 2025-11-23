@@ -23,7 +23,7 @@ data class RouteCreatedEvent(
     val companyId: CompanyId,
     val routeName: String,
     val date: LocalDate,
-    val driverId: DriverId,
+    val driverId: DriverId?,
     val vehicleId: VehicleId,
     val createdBy: UserId,
     val createdByName: String

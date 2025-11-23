@@ -37,8 +37,8 @@ class RouteSeriesEntity(
     @Column(name = "route_name_template", nullable = false, length = 255)
     val routeNameTemplate: String,
 
-    @Column(name = "driver_id", nullable = false, length = 50)
-    val driverId: String,
+    @Column(name = "driver_id", length = 50)
+    val driverId: String?,
 
     @Column(name = "vehicle_id", nullable = false, length = 50)
     val vehicleId: String,
@@ -82,7 +82,7 @@ class RouteSeriesEntity(
         companyId = CompanyId(companyId),
         seriesName = seriesName,
         routeNameTemplate = routeNameTemplate,
-        driverId = DriverId(driverId),
+        driverId = driverId?.let { DriverId(it) }, // ← ZMIENIONE: mapowanie nullable
         vehicleId = VehicleId(vehicleId),
         estimatedStartTime = estimatedStartTime,
         estimatedEndTime = estimatedEndTime,
@@ -102,7 +102,7 @@ class RouteSeriesEntity(
             companyId = series.companyId.value,
             seriesName = series.seriesName,
             routeNameTemplate = series.routeNameTemplate,
-            driverId = series.driverId.value,
+            driverId = series.driverId?.value, // ← ZMIENIONE: mapowanie nullable
             vehicleId = series.vehicleId.value,
             estimatedStartTime = series.estimatedStartTime,
             estimatedEndTime = series.estimatedEndTime,

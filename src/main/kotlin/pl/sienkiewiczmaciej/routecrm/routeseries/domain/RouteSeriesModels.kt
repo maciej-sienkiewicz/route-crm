@@ -49,12 +49,14 @@ enum class OccurrenceStatus {
     CANCELLED
 }
 
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/routeseries/domain/RouteSeriesModels.kt
+
 data class RouteSeries(
     val id: RouteSeriesId,
     val companyId: CompanyId,
     val seriesName: String,
     val routeNameTemplate: String,
-    val driverId: DriverId,
+    val driverId: DriverId?, // ← ZMIENIONE: nullable
     val vehicleId: VehicleId,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
@@ -72,7 +74,7 @@ data class RouteSeries(
             companyId: CompanyId,
             seriesName: String,
             routeNameTemplate: String,
-            driverId: DriverId,
+            driverId: DriverId?, // ← ZMIENIONE: nullable
             vehicleId: VehicleId,
             estimatedStartTime: LocalTime,
             estimatedEndTime: LocalTime,
@@ -100,7 +102,7 @@ data class RouteSeries(
                 companyId = companyId,
                 seriesName = seriesName,
                 routeNameTemplate = routeNameTemplate,
-                driverId = driverId,
+                driverId = driverId, // ← ZMIENIONE: może być null
                 vehicleId = vehicleId,
                 estimatedStartTime = estimatedStartTime,
                 estimatedEndTime = estimatedEndTime,
