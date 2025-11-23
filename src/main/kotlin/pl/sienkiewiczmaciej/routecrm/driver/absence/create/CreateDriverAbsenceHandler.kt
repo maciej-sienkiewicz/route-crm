@@ -7,6 +7,9 @@ import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.DriverAbsence
 import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.DriverAbsenceId
 import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.DriverAbsenceStatus
 import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.DriverAbsenceType
+import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.services.AffectedRouteDetail
+import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.services.AffectedSeriesDetail
+import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.services.DriverAbsenceRouteSyncService
 import pl.sienkiewiczmaciej.routecrm.driver.absence.infrastructure.services.DriverAbsenceApplicationService
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -34,6 +37,10 @@ data class CreateDriverAbsenceResult(
     val reason: String?,
     val status: DriverAbsenceStatus,
     val conflictingRoutesCount: Int,
+    val routesUpdated: Int,
+    val seriesUpdated: Int,
+    val affectedRoutes: List<AffectedRouteDetail>,      // NOWE
+    val affectedSeries: List<AffectedSeriesDetail>,     // NOWE
     val createdBy: UserId,
 )
 
@@ -41,6 +48,7 @@ data class CreateDriverAbsenceResult(
 class CreateDriverAbsenceHandler(
     private val validatorComposite: CreateDriverAbsenceValidatorComposite,
     private val absenceApplicationService: DriverAbsenceApplicationService,
+    private val routeSyncService: DriverAbsenceRouteSyncService,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -63,7 +71,14 @@ class CreateDriverAbsenceHandler(
 
         val saved = context.absenceRepository.save(absence)
 
+        // Znajdź konflikty (do celów informacyjnych)
         val conflictingRoutes = absenceApplicationService.findConflictingRoutes(saved)
+
+        // Synchronizuj absencję z trasami
+        val syncResult = routeSyncService.syncAbsenceWithRoutes(
+            companyId = command.companyId,
+            absence = saved
+        )
 
         return CreateDriverAbsenceResult(
             id = saved.id,
@@ -74,6 +89,10 @@ class CreateDriverAbsenceHandler(
             reason = saved.reason,
             status = saved.status,
             conflictingRoutesCount = conflictingRoutes.size,
+            routesUpdated = syncResult.routesUpdated,
+            seriesUpdated = syncResult.seriesUpdated,
+            affectedRoutes = syncResult.affectedRoutes,        // NOWE
+            affectedSeries = syncResult.affectedSeries,        // NOWE
             createdBy = principal.userId
         )
     }

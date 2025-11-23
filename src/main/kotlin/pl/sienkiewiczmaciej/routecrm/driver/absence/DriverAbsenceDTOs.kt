@@ -14,6 +14,7 @@ import pl.sienkiewiczmaciej.routecrm.driver.absence.domain.DriverAbsenceType
 import pl.sienkiewiczmaciej.routecrm.driver.absence.getbyid.DriverAbsenceDetail
 import pl.sienkiewiczmaciej.routecrm.driver.absence.list.DriverAbsenceListItem
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
 import java.time.Instant
@@ -59,7 +60,11 @@ data class DriverAbsenceResponse(
     val createdAt: Instant,
     val cancelledAt: Instant?,
     val cancellationReason: String?,
-    val conflictingRoutesCount: Int?
+    val conflictingRoutesCount: Int?,
+    val routesUpdated: Int?,
+    val seriesUpdated: Int?,
+    val affectedRoutes: List<AffectedRouteInfo>?,      // NOWE
+    val affectedSeries: List<AffectedSeriesInfo>?      // NOWE
 ) {
     companion object {
         fun from(result: CreateDriverAbsenceResult) = DriverAbsenceResponse(
@@ -75,7 +80,26 @@ data class DriverAbsenceResponse(
             createdAt = Instant.now(),
             cancelledAt = null,
             cancellationReason = null,
-            conflictingRoutesCount = result.conflictingRoutesCount
+            conflictingRoutesCount = result.conflictingRoutesCount,
+            routesUpdated = result.routesUpdated,
+            seriesUpdated = result.seriesUpdated,
+            affectedRoutes = result.affectedRoutes.map {
+                AffectedRouteInfo(
+                    id = it.id.value,
+                    routeName = it.routeName,
+                    date = it.date,
+                    previousStatus = it.previousStatus,
+                    newStatus = it.newStatus
+                )
+            },
+            affectedSeries = result.affectedSeries.map {
+                AffectedSeriesInfo(
+                    id = it.id.value,
+                    seriesName = it.seriesName,
+                    startDate = it.startDate,
+                    endDate = it.endDate
+                )
+            }
         )
 
         fun fromDetail(detail: DriverAbsenceDetail) = DriverAbsenceResponse(
@@ -91,7 +115,11 @@ data class DriverAbsenceResponse(
             createdAt = detail.createdAt,
             cancelledAt = detail.cancelledAt,
             cancellationReason = detail.cancellationReason,
-            conflictingRoutesCount = null
+            conflictingRoutesCount = null,
+            routesUpdated = null,
+            seriesUpdated = null,
+            affectedRoutes = null,
+            affectedSeries = null
         )
 
         fun from(item: DriverAbsenceListItem) = DriverAbsenceResponse(
@@ -107,7 +135,11 @@ data class DriverAbsenceResponse(
             createdAt = item.createdAt,
             cancelledAt = item.cancelledAt,
             cancellationReason = item.cancellationReason,
-            conflictingRoutesCount = null
+            conflictingRoutesCount = null,
+            routesUpdated = null,
+            seriesUpdated = null,
+            affectedRoutes = null,
+            affectedSeries = null
         )
     }
 }
@@ -147,3 +179,18 @@ data class CancelDriverAbsenceResponse(
         )
     }
 }
+
+data class AffectedRouteInfo(
+    val id: String,
+    val routeName: String,
+    val date: LocalDate,
+    val previousStatus: RouteStatus,
+    val newStatus: RouteStatus
+)
+
+data class AffectedSeriesInfo(
+    val id: String,
+    val seriesName: String,
+    val startDate: LocalDate,
+    val endDate: LocalDate?
+)
