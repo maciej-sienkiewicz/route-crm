@@ -63,11 +63,27 @@ class AddRouteScheduleHandler(
             vehicle = context.vehicle
         )
 
+        val existingStops = context.existingStops
+            .filterNot { it.isCancelled }
+            .sortedBy { it.stopOrder }
+
+        val displayOrderToInsertAfter = command.pickupStop.stopOrder - 1
+
+        val afterOrder = if (existingStops.isEmpty()) {
+            null
+        } else if (displayOrderToInsertAfter <= 0) {
+            null
+        } else if (displayOrderToInsertAfter >= existingStops.size) {
+            existingStops.last().stopOrder
+        } else {
+            existingStops[displayOrderToInsertAfter].stopOrder
+        }
+
         val result = insertionService.insertStops(
             companyId = command.companyId,
             routeId = command.routeId,
             stopsToInsert = listOf(pickupStop, dropoffStop),
-            afterOrder = command.pickupStop.stopOrder - 1
+            afterOrder = afterOrder
         )
 
         val savedPickup = result.insertedStops[0]

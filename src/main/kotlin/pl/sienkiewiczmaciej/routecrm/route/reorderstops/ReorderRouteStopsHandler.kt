@@ -1,4 +1,3 @@
-// route/reorderstops/ReorderRouteStopsHandler.kt (UPDATED WITH EVENTS)
 package pl.sienkiewiczmaciej.routecrm.route.reorderstops
 
 import org.springframework.stereotype.Component
@@ -7,6 +6,7 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopId
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
 import pl.sienkiewiczmaciej.routecrm.route.domain.events.RouteStopsReorderedEvent
+import pl.sienkiewiczmaciej.routecrm.route.domain.services.GapBasedStopOrderCalculator
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
@@ -41,30 +41,42 @@ class ReorderRouteStopsHandler(
         principal: UserPrincipal,
         command: ReorderRouteStopsCommand
     ): ReorderRouteStopsResult {
-        // 1. Authorization
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR)
         authService.requireSameCompany(principal.companyId, command.companyId)
 
-        // 2. Validate (throws exception on failure, returns context)
         val context = validatorComposite.validate(command)
 
-        // 3. Two-phase reorder to avoid unique constraint violations
-        // First pass: assign temporary negative orders
-        val stopsWithTemporaryOrder = command.stopOrders.mapIndexed { index, update ->
-            val stop = context.existingStops.first { it.id == update.stopId }
+        val existingStops = context.existingStops.sortedBy { it.stopOrder }
+
+        val stopIdToLogicalOrder = mutableMapOf<RouteStopId, Int>()
+
+        command.stopOrders.sortedBy { it.newOrder }.forEachIndexed { index, update ->
+            stopIdToLogicalOrder[update.stopId] = (index + 1) * GapBasedStopOrderCalculator.GAP_SIZE
+        }
+
+        val stopsWithNewOrder = existingStops.map { stop ->
+            val newLogicalOrder = stopIdToLogicalOrder[stop.id] ?: stop.stopOrder
+            stop.updateOrder(newLogicalOrder)
+        }
+
+        val stopsWithTemporaryOrder = stopsWithNewOrder.mapIndexed { index, stop ->
             stop.updateOrder(-(index + 1))
         }
         stopRepository.saveAll(stopsWithTemporaryOrder)
 
-        // Second pass: assign final orders
         val refreshedStops = stopRepository.findByRoute(command.companyId, command.routeId)
-        val stopsWithFinalOrder = command.stopOrders.map { update ->
-            val stop = refreshedStops.first { it.id == update.stopId }
-            stop.updateOrder(update.newOrder)
-        }
+        val stopsWithFinalOrder = refreshedStops
+            .sortedBy { it.stopOrder }
+            .map { stop ->
+                val finalLogicalOrder = stopIdToLogicalOrder[stop.id] ?: stop.stopOrder
+                if (finalLogicalOrder < 0) {
+                    stop.updateOrder(-finalLogicalOrder)
+                } else {
+                    stop.updateOrder(finalLogicalOrder)
+                }
+            }
         stopRepository.saveAll(stopsWithFinalOrder)
 
-        // 4. Publish event
         eventPublisher.publish(
             RouteStopsReorderedEvent(
                 aggregateId = command.routeId.value,
@@ -75,7 +87,6 @@ class ReorderRouteStopsHandler(
             )
         )
 
-        // 5. Return result
         return ReorderRouteStopsResult(
             routeId = command.routeId,
             updatedStopsCount = stopsWithFinalOrder.size

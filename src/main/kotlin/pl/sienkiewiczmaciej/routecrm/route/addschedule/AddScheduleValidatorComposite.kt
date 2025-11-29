@@ -1,13 +1,7 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/addschedule/AddRouteScheduleValidatorComposite.kt
 package pl.sienkiewiczmaciej.routecrm.route.addschedule
 
 import org.springframework.stereotype.Component
 
-
-/**
- * Composite validator for AddRouteSchedule operation.
- * Coordinates validation and builds context with pre-loaded data.
- */
 @Component
 class AddScheduleValidatorComposite(
     private val contextBuilder: AddScheduleContextBuilder,
@@ -18,33 +12,20 @@ class AddScheduleValidatorComposite(
     private val stopOrderValidator: AddScheduleStopOrderValidator,
     private val absenceValidator: AddScheduleAbsenceValidator
 ) {
-    /**
-     * Validates the AddRouteSchedule command and returns validation context.
-     * Context contains pre-loaded data that the handler can reuse.
-     *
-     * @throws IllegalArgumentException if any validation fails
-     * @throws RouteNotFoundException if route not found
-     * @throws ChildNotFoundException if child not found
-     * @return AddRouteScheduleValidationContext with pre-loaded aggregates
-     */
     suspend fun validate(command: AddRouteScheduleCommand): AddRouteScheduleValidationContext {
-        // 1. Build validation context (batch load all data)
         val context = contextBuilder.build(command)
 
-        // 2. Run all validators
         routeStatusValidator.validate(context)
         childStatusValidator.validate(context)
         scheduleOwnershipValidator.validate(command, context)
         childNotInRouteValidator.validate(command, context)
-        stopOrderValidator.validate(command)
+        stopOrderValidator.validate(command, context)
         absenceValidator.validate(command, context)
 
-        // 3. Return context for handler to use
         return context
     }
 }
 
-// Individual validators
 @Component
 class AddScheduleRouteStatusValidator {
     fun validate(context: AddRouteScheduleValidationContext) {
@@ -86,9 +67,23 @@ class AddScheduleChildNotInRouteValidator {
 
 @Component
 class AddScheduleStopOrderValidator {
-    fun validate(command: AddRouteScheduleCommand) {
+    fun validate(command: AddRouteScheduleCommand, context: AddRouteScheduleValidationContext) {
+        val existingStopsCount = context.existingStops.filterNot { it.isCancelled }.size
+
+        require(command.pickupStop.stopOrder > 0) {
+            "Pickup stop order must be positive"
+        }
+
+        require(command.dropoffStop.stopOrder > 0) {
+            "Dropoff stop order must be positive"
+        }
+
         require(command.pickupStop.stopOrder < command.dropoffStop.stopOrder) {
             "Pickup stop order (${command.pickupStop.stopOrder}) must be before dropoff stop order (${command.dropoffStop.stopOrder})"
+        }
+
+        require(command.dropoffStop.stopOrder <= existingStopsCount + 2) {
+            "Stop orders exceed available positions. Max: ${existingStopsCount + 2}"
         }
     }
 }

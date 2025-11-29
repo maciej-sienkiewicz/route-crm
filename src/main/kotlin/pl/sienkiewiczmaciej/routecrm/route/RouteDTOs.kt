@@ -90,7 +90,7 @@ data class CreateRouteRequest(
     @field:NotNull(message = "Date is required")
     val date: LocalDate,
 
-    val driverId: String?, // ← ZMIENIONE: nullable, bez @NotBlank
+    val driverId: String?,
 
     @field:NotBlank(message = "Vehicle ID is required")
     val vehicleId: String,
@@ -111,7 +111,7 @@ data class CreateRouteRequest(
         companyId = companyId,
         routeName = routeName,
         date = date,
-        driverId = driverId?.let { if(it.isBlank()) null else DriverId.from(it) }, // ← ZMIENIONE: mapowanie nullable
+        driverId = driverId?.let { if(it.isBlank()) null else DriverId.from(it) },
         vehicleId = VehicleId.from(vehicleId),
         estimatedStartTime = estimatedStartTime,
         estimatedEndTime = estimatedEndTime,
@@ -186,7 +186,7 @@ data class RouteListResponse(
             routeName = item.routeName,
             date = item.date,
             status = item.status,
-            driver = if (item.driverId != null) { // ← ZMIENIONE
+            driver = if (item.driverId != null) {
                 DriverSimpleResponse(
                     id = item.driverId.value,
                     firstName = item.driverFirstName,
@@ -267,7 +267,7 @@ data class RouteDetailResponse(
             routeName = detail.routeName,
             date = detail.date,
             status = detail.status,
-            driver = if (detail.driverId != null) { // ← ZMIENIONE: mapowanie nullable
+            driver = if (detail.driverId != null) {
                 DriverSimpleResponse(
                     id = detail.driverId.value,
                     firstName = detail.driverFirstName ?: "",
@@ -283,10 +283,10 @@ data class RouteDetailResponse(
             estimatedEndTime = detail.estimatedEndTime,
             actualStartTime = detail.actualStartTime,
             actualEndTime = detail.actualEndTime,
-            stops = detail.stops.map { stop ->
+            stops = detail.stops.mapIndexed { index, stop ->
                 RouteStopDetailResponse(
                     id = stop.id.value,
-                    stopOrder = stop.stopOrder,
+                    stopOrder = index + 1,
                     stopType = stop.stopType,
                     childId = stop.childId.value,
                     childFirstName = stop.childFirstName,
@@ -589,7 +589,7 @@ data class UpdateRouteStopRequest(
             address = ScheduleAddress(
                 label = address.label,
                 address = address.toDomainAddress(),
-                latitude = null, // Będzie uzupełnione przez handler
+                latitude = null,
                 longitude = null
             )
         )
@@ -732,7 +732,7 @@ data class RouteHistoryResponse(
             routeName = item.routeName,
             date = item.date,
             status = item.status,
-            driver = if (item.driverId != null) { // ← ZMIENIONE
+            driver = if (item.driverId != null) {
                 DriverSimpleResponse(
                     id = item.driverId.value,
                     firstName = item.driverFirstName,
@@ -774,7 +774,7 @@ data class UpcomingRouteResponse(
             routeName = item.routeName,
             date = item.date,
             status = item.status,
-            driver = if (item.driverId != null) { // ← ZMIENIONE
+            driver = if (item.driverId != null) {
                 DriverSimpleResponse(
                     id = item.driverId.value,
                     firstName = item.driverFirstName,
@@ -811,15 +811,11 @@ data class ChildStopInfoResponse(
             stopType = stop.stopType,
             childFirstName = stop.childFirstName,
             childLastName = stop.childLastName,
-            estimatedTime = stop.estimatedTime,
+            estimatedTime =stop.estimatedTime,
             address = ScheduleAddressResponse.from(stop.address)
         )
     }
 }
-
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/RouteDTOs.kt
-// Dodaj na końcu istniejącego pliku:
-
 data class RouteSuggestionResponse(
     val id: String,
     val companyId: String,
@@ -843,7 +839,7 @@ data class RouteSuggestionResponse(
             routeName = detail.routeName,
             date = detail.date,
             status = detail.status,
-            driver = if (detail.driver != null) { // ← ZMIENIONE
+            driver = if (detail.driver != null) {
                 DriverSimpleResponse(
                     id = detail.driver.id.value,
                     firstName = detail.driver.firstName,
@@ -859,11 +855,12 @@ data class RouteSuggestionResponse(
             estimatedEndTime = detail.estimatedEndTime,
             actualStartTime = detail.actualStartTime,
             actualEndTime = detail.actualEndTime,
-            stops = detail.stops.map { RouteStopSuggestionResponse.from(it) }
+            stops = detail.stops.mapIndexed { index, stop ->
+                RouteStopSuggestionResponse.from(stop, index + 1)
+            }
         )
     }
 }
-
 data class RouteStopSuggestionResponse(
     val id: String,
     val stopOrder: Int,
@@ -881,9 +878,9 @@ data class RouteStopSuggestionResponse(
     val guardian: GuardianSimpleResponse
 ) {
     companion object {
-        fun from(stop: pl.sienkiewiczmaciej.routecrm.route.suggestions.RouteStopSimple) = RouteStopSuggestionResponse(
+        fun from(stop: pl.sienkiewiczmaciej.routecrm.route.suggestions.RouteStopSimple, displayOrder: Int) = RouteStopSuggestionResponse(
             id = stop.id.value,
-            stopOrder = stop.stopOrder,
+            stopOrder = displayOrder,
             stopType = stop.stopType,
             childId = stop.childId.value,
             childFirstName = stop.childFirstName,
@@ -902,11 +899,9 @@ data class RouteStopSuggestionResponse(
         )
     }
 }
-
 data class ReassignDriverRequest(
     @field:NotBlank(message = "New driver ID is required")
     val newDriverId: String,
-
     @field:Size(max = 5000)
     val reason: String? = null
 ) {
@@ -918,7 +913,6 @@ data class ReassignDriverRequest(
             reason = reason
         )
 }
-
 data class ReassignDriverResponse(
     val routeId: String,
     val previousDriverId: String?,
