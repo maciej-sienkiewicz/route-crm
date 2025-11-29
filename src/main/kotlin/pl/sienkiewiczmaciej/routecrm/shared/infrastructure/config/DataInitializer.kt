@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
+import pl.sienkiewiczmaciej.routecrm.auth.global.AccountStatus
 import pl.sienkiewiczmaciej.routecrm.child.domain.ChildStatus
 import pl.sienkiewiczmaciej.routecrm.child.domain.DisabilityType
 import pl.sienkiewiczmaciej.routecrm.child.domain.TransportNeeds
@@ -202,6 +203,10 @@ class DataInitializer(
                     postalCode = "6${index % 2}-${String.format("%03d", (100 + index * 10) % 1000)}",
                     city = cities[index % cities.size]
                 ),
+                globalGuardianId = "123",
+                accountStatus = AccountStatus.ACTIVE,
+                lastLogin = Instant.now(),
+                loginCount = 0,
             )
             guardianRepository.save(guardian)
         }

@@ -41,4 +41,9 @@ interface GuardianJpaRepository : JpaRepository<GuardianEntity, String> {
         email: String,
         excludeId: String
     ): Boolean
+
+    fun findByCompanyIdAndGlobalGuardianId(
+        companyId: String,
+        globalGuardianId: String
+    ): GuardianEntity?
 }

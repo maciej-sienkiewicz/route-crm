@@ -1,3 +1,4 @@
+// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/guardian/GuardianDTOs.kt
 package pl.sienkiewiczmaciej.routecrm.guardian
 
 import jakarta.validation.Valid
@@ -10,6 +11,9 @@ import pl.sienkiewiczmaciej.routecrm.guardian.create.CreateGuardianResult
 import pl.sienkiewiczmaciej.routecrm.guardian.domain.GuardianId
 import pl.sienkiewiczmaciej.routecrm.guardian.getbyid.GuardianDetail
 import pl.sienkiewiczmaciej.routecrm.guardian.list.GuardianListItem
+import pl.sienkiewiczmaciej.routecrm.guardian.services.GuardianAccountInfo
+import pl.sienkiewiczmaciej.routecrm.guardian.services.GuardianChild
+import pl.sienkiewiczmaciej.routecrm.guardian.services.GuardianStats
 import pl.sienkiewiczmaciej.routecrm.guardian.update.UpdateGuardianCommand
 import pl.sienkiewiczmaciej.routecrm.guardian.update.UpdateGuardianResult
 import pl.sienkiewiczmaciej.routecrm.shared.domain.Address
@@ -80,7 +84,7 @@ data class CreateGuardianRequest(
     val phone: String,
 
     @field:Valid
-    val address: AddressRequest?,
+    val address: AddressRequest?
 ) {
     fun toCommand(companyId: CompanyId) = CreateGuardianCommand(
         companyId = companyId,
@@ -88,7 +92,7 @@ data class CreateGuardianRequest(
         lastName = lastName,
         email = email,
         phone = phone,
-        address = address?.toDomain(),
+        address = address?.toDomain()
     )
 }
 
@@ -111,7 +115,7 @@ data class GuardianResponse(
             lastName = result.lastName,
             email = result.email,
             phone = result.phone,
-            address = result.address?.let { AddressResponse.from(it) } ,
+            address = result.address?.let { AddressResponse.from(it) },
             childrenCount = 0,
             createdAt = Instant.now()
         )
@@ -146,7 +150,9 @@ data class GuardianDetailResponse(
     val email: String?,
     val phone: String,
     val address: AddressResponse?,
-    val children: List<ChildInfoResponse>,
+    val children: List<GuardianChildResponse>,
+    val accountInfo: GuardianAccountInfoResponse,
+    val stats: GuardianStatsResponse,
     val createdAt: Instant,
     val updatedAt: Instant
 ) {
@@ -158,30 +164,70 @@ data class GuardianDetailResponse(
             lastName = detail.lastName,
             email = detail.email,
             phone = detail.phone,
-            address = detail.address?.let { AddressResponse.from(it) } ,
-            children = detail.children.map { ChildInfoResponse.from(it) },
+            address = detail.address?.let { AddressResponse.from(it) },
+            children = detail.children.map { GuardianChildResponse.from(it) },
+            accountInfo = GuardianAccountInfoResponse.from(detail.accountInfo),
+            stats = GuardianStatsResponse.from(detail.stats),
             createdAt = Instant.now(),
             updatedAt = Instant.now()
         )
     }
 }
 
-data class ChildInfoResponse(
+data class GuardianChildResponse(
     val id: String,
     val firstName: String,
     val lastName: String,
     val age: Int,
     val relationship: String,
-    val isPrimary: Boolean
+    val isPrimary: Boolean,
+    val status: String
 ) {
     companion object {
-        fun from(info: pl.sienkiewiczmaciej.routecrm.guardian.getbyid.GuardianChildInfo) = ChildInfoResponse(
-            id = info.id,
-            firstName = info.firstName,
-            lastName = info.lastName,
-            age = info.age,
-            relationship = info.relationship,
-            isPrimary = info.isPrimary
+        fun from(child: GuardianChild) = GuardianChildResponse(
+            id = child.child.id.value,
+            firstName = child.child.firstName,
+            lastName = child.child.lastName,
+            age = child.age(),
+            relationship = child.relationship.name,
+            isPrimary = child.isPrimary,
+            status = child.child.status.name
+        )
+    }
+}
+
+data class GuardianAccountInfoResponse(
+    val hasAccount: Boolean,
+    val lastLogin: String?,
+    val loginCount30Days: Int,
+    val loginCount7Days: Int,
+    val accountCreatedAt: String?,
+    val accountStatus: String
+) {
+    companion object {
+        fun from(info: GuardianAccountInfo) = GuardianAccountInfoResponse(
+            hasAccount = info.hasAccount,
+            lastLogin = info.lastLogin?.toString(),
+            loginCount30Days = info.loginCount30Days,
+            loginCount7Days = info.loginCount7Days,
+            accountCreatedAt = info.accountCreatedAt?.toString(),
+            accountStatus = info.accountStatus.name
+        )
+    }
+}
+
+data class GuardianStatsResponse(
+    val totalChildren: Int,
+    val activeChildren: Int,
+    val upcomingRoutes: Int,
+    val recentContacts: Int
+) {
+    companion object {
+        fun from(stats: GuardianStats) = GuardianStatsResponse(
+            totalChildren = stats.totalChildren,
+            activeChildren = stats.activeChildren,
+            upcomingRoutes = stats.upcomingRoutes,
+            recentContacts = stats.recentContacts
         )
     }
 }
@@ -208,8 +254,8 @@ data class UpdateGuardianRequest(
     val alternatePhone: String?,
 
     @field:Valid
-    val address: AddressRequest,
-    ) {
+    val address: AddressRequest
+) {
     fun toCommand(companyId: CompanyId, id: GuardianId) = UpdateGuardianCommand(
         companyId = companyId,
         id = id,
@@ -218,7 +264,7 @@ data class UpdateGuardianRequest(
         email = email,
         phone = phone,
         alternatePhone = alternatePhone,
-        address = address.toDomain(),
+        address = address.toDomain()
     )
 }
 
