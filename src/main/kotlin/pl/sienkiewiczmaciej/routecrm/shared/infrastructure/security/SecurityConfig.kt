@@ -36,6 +36,8 @@ class SecurityConfig {
             .authorizeHttpRequests { auth ->
                 auth
                     .requestMatchers("/api/auth/login").permitAll()
+                    .requestMatchers("/api/driver-auth/login").permitAll()
+                    .requestMatchers("/api/driver-auth/activate").permitAll()
                     .requestMatchers("/api/auth/me").authenticated()
                     .requestMatchers("/api/auth/logout").authenticated()
                     .anyRequest().authenticated()

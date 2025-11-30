@@ -3,11 +3,13 @@ package pl.sienkiewiczmaciej.routecrm.driver.create
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.driver.domain.*
+import pl.sienkiewiczmaciej.routecrm.driverauth.service.DriverAuthService
 import pl.sienkiewiczmaciej.routecrm.shared.domain.Address
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
+import java.time.Instant
 import java.time.LocalDate
 
 data class CreateDriverCommand(
@@ -28,12 +30,15 @@ data class CreateDriverResult(
     val firstName: String,
     val lastName: String,
     val email: String,
-    val status: DriverStatus
+    val status: DriverStatus,
+    val activationPin: String,
+    val pinExpiresAt: Instant
 )
 
 @Component
 class CreateDriverHandler(
     private val driverRepository: DriverRepository,
+    private val driverAuthService: DriverAuthService,
     private val authService: AuthorizationService
 ) {
     @Transactional
@@ -63,13 +68,21 @@ class CreateDriverHandler(
 
         val saved = driverRepository.save(driver)
 
+        val activation = driverAuthService.createCredentialsForNewDriver(
+            companyId = saved.companyId,
+            driverId = saved.id,
+            phoneNumber = saved.phone
+        )
+
         return CreateDriverResult(
             id = saved.id,
             companyId = saved.companyId,
             firstName = saved.firstName,
             lastName = saved.lastName,
             email = saved.email,
-            status = saved.status
+            status = saved.status,
+            activationPin = activation.activationPin,
+            pinExpiresAt = activation.expiresAt
         )
     }
 }

@@ -1,14 +1,20 @@
 package pl.sienkiewiczmaciej.routecrm.driver
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import jakarta.validation.Valid
 import jakarta.validation.constraints.*
 import pl.sienkiewiczmaciej.routecrm.driver.create.CreateDriverCommand
 import pl.sienkiewiczmaciej.routecrm.driver.create.CreateDriverResult
-import pl.sienkiewiczmaciej.routecrm.driver.domain.*
+import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
+import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverStatus
+import pl.sienkiewiczmaciej.routecrm.driver.domain.DrivingLicense
+import pl.sienkiewiczmaciej.routecrm.driver.domain.MedicalCertificate
+import pl.sienkiewiczmaciej.routecrm.driver.getbyid.DriverAuthStatus
 import pl.sienkiewiczmaciej.routecrm.driver.getbyid.DriverDetail
 import pl.sienkiewiczmaciej.routecrm.driver.list.DriverListItem
 import pl.sienkiewiczmaciej.routecrm.driver.update.UpdateDriverCommand
 import pl.sienkiewiczmaciej.routecrm.driver.update.UpdateDriverResult
+import pl.sienkiewiczmaciej.routecrm.driverauth.domain.AccountStatus
 import pl.sienkiewiczmaciej.routecrm.guardian.AddressRequest
 import pl.sienkiewiczmaciej.routecrm.guardian.AddressResponse
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
@@ -134,7 +140,9 @@ data class DriverResponse(
     val drivingLicense: DrivingLicenseResponse,
     val medicalCertificate: MedicalCertificateResponse,
     val status: DriverStatus,
-    val createdAt: Instant
+    val createdAt: Instant,
+    val activationPin: String,
+    val pinExpiresAt: Instant
 ) {
     companion object {
         fun from(result: CreateDriverResult, command: CreateDriverCommand) = DriverResponse(
@@ -149,7 +157,9 @@ data class DriverResponse(
             drivingLicense = DrivingLicenseResponse.from(command.drivingLicense),
             medicalCertificate = MedicalCertificateResponse.from(command.medicalCertificate),
             status = result.status,
-            createdAt = Instant.now()
+            createdAt = Instant.now(),
+            activationPin = result.activationPin,
+            pinExpiresAt = result.pinExpiresAt
         )
     }
 }
@@ -194,6 +204,50 @@ data class MedicalCertificateSimpleResponse(
     val validUntil: LocalDate
 )
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class DriverAuthStatusResponse(
+    val accountStatus: AccountStatus,
+    val accountStatusDisplay: String,
+    val failedLoginAttempts: Int,
+    val lastFailedLoginAt: Instant?,
+    val lockedAt: Instant?,
+    val lockedUntil: Instant?,
+    val isCurrentlyLocked: Boolean,
+    val activatedAt: Instant?,
+    val passwordChangedAt: Instant,
+    val hasCredentials: Boolean,
+    val canLogin: Boolean,
+    val requiresActivation: Boolean
+) {
+    companion object {
+        fun from(authStatus: DriverAuthStatus): DriverAuthStatusResponse {
+            val isCurrentlyLocked = authStatus.lockedUntil?.isAfter(Instant.now()) ?: false
+            val requiresActivation = authStatus.accountStatus == AccountStatus.PENDING_ACTIVATION
+            val canLogin = authStatus.accountStatus == AccountStatus.ACTIVE && !isCurrentlyLocked
+
+            return DriverAuthStatusResponse(
+                accountStatus = authStatus.accountStatus,
+                accountStatusDisplay = when (authStatus.accountStatus) {
+                    AccountStatus.PENDING_ACTIVATION -> "Oczekuje na aktywację"
+                    AccountStatus.ACTIVE -> if (isCurrentlyLocked) "Zablokowane" else "Aktywne"
+                    AccountStatus.LOCKED -> "Zablokowane"
+                    AccountStatus.SUSPENDED -> "Zawieszone"
+                },
+                failedLoginAttempts = authStatus.failedLoginAttempts,
+                lastFailedLoginAt = authStatus.lastFailedLoginAt,
+                lockedAt = authStatus.lockedAt,
+                lockedUntil = authStatus.lockedUntil,
+                isCurrentlyLocked = isCurrentlyLocked,
+                activatedAt = authStatus.activatedAt,
+                passwordChangedAt = authStatus.passwordChangedAt,
+                hasCredentials = authStatus.hasCredentials,
+                canLogin = canLogin,
+                requiresActivation = requiresActivation
+            )
+        }
+    }
+}
+
 data class DriverDetailResponse(
     val id: String,
     val companyId: String,
@@ -207,7 +261,8 @@ data class DriverDetailResponse(
     val medicalCertificate: MedicalCertificateResponse,
     val status: DriverStatus,
     val createdAt: Instant,
-    val updatedAt: Instant
+    val updatedAt: Instant,
+    val authStatus: DriverAuthStatusResponse?
 ) {
     companion object {
         fun from(detail: DriverDetail) = DriverDetailResponse(
@@ -223,7 +278,8 @@ data class DriverDetailResponse(
             medicalCertificate = MedicalCertificateResponse.from(detail.medicalCertificate),
             status = detail.status,
             createdAt = Instant.now(),
-            updatedAt = Instant.now()
+            updatedAt = Instant.now(),
+            authStatus = detail.authStatus?.let { DriverAuthStatusResponse.from(it) }
         )
     }
 }

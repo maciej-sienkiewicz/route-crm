@@ -18,6 +18,10 @@ import pl.sienkiewiczmaciej.routecrm.driver.getbyid.GetDriverQuery
 import pl.sienkiewiczmaciej.routecrm.driver.list.ListDriversHandler
 import pl.sienkiewiczmaciej.routecrm.driver.list.ListDriversQuery
 import pl.sienkiewiczmaciej.routecrm.driver.update.UpdateDriverHandler
+import pl.sienkiewiczmaciej.routecrm.driverauth.resetpassword.DriverResetPasswordHandler
+import pl.sienkiewiczmaciej.routecrm.driverauth.resetpassword.ResetPasswordCommand
+import pl.sienkiewiczmaciej.routecrm.driverauth.unlock.UnlockAccountCommand
+import pl.sienkiewiczmaciej.routecrm.driverauth.unlock.UnlockAccountHandler
 import pl.sienkiewiczmaciej.routecrm.shared.api.BaseController
 
 @RestController
@@ -27,7 +31,9 @@ class DriverController(
     private val listHandler: ListDriversHandler,
     private val getHandler: GetDriverHandler,
     private val updateHandler: UpdateDriverHandler,
-    private val deleteHandler: DeleteDriverHandler
+    private val deleteHandler: DeleteDriverHandler,
+    private val unlockAccountHandler: UnlockAccountHandler,
+    private val driverResetPasswordHandler: DriverResetPasswordHandler
 ) : BaseController() {
 
     @PostMapping
@@ -86,5 +92,32 @@ class DriverController(
         )
         deleteHandler.handle(principal, command)
         return ResponseEntity.status(NO_CONTENT).build()
+    }
+
+    @PostMapping("/{id}/unlock")
+    suspend fun unlockAccount(@PathVariable id: String): ResponseEntity<Map<String, String>> {
+        val principal = getPrincipal()
+        val command = UnlockAccountCommand(
+            companyId = principal.companyId,
+            driverId = DriverId.from(id)
+        )
+        unlockAccountHandler.handle(principal, command)
+        return ResponseEntity.ok(mapOf("message" to "Account unlocked successfully"))
+    }
+
+    @PostMapping("/{id}/reset-password")
+    suspend fun resetPassword(@PathVariable id: String): ResponseEntity<Map<String, String>> {
+        val principal = getPrincipal()
+        val command = ResetPasswordCommand(
+            companyId = principal.companyId,
+            driverId = DriverId.from(id)
+        )
+        val result = driverResetPasswordHandler.handle(principal, command)
+        return ResponseEntity.ok(
+            mapOf(
+                "message" to "Password reset successfully",
+                "newPin" to result.newPin
+            )
+        )
     }
 }
