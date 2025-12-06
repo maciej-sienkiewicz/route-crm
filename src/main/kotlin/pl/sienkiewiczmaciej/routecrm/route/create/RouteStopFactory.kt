@@ -9,6 +9,7 @@ import pl.sienkiewiczmaciej.routecrm.schedule.domain.Schedule
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleAddress
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.external.GeocodingService
+import java.time.Instant
 
 /**
  * Factory responsible for creating RouteStop domain objects.
@@ -74,7 +75,8 @@ class RouteStopFactory(
             childId = stopData.childId,
             scheduleId = stopData.scheduleId,
             estimatedTime = stopData.estimatedTime,
-            address = addressWithCoords
+            address = addressWithCoords,
+            createdAt = Instant.now()
         )
     }
 

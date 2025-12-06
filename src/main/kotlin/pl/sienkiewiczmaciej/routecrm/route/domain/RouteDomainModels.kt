@@ -184,7 +184,7 @@ enum class StopType {
 enum class ExecutionStatus {
     COMPLETED,
     NO_SHOW,
-    REFUSED
+    REFUSED,
 }
 
 data class RouteStop(
@@ -204,7 +204,8 @@ data class RouteStop(
     val executionStatus: ExecutionStatus?,
     val executionNotes: String?,
     val executedByUserId: String?,
-    val executedByName: String?
+    val executedByName: String?,
+    val createdAt: Instant
 ) {
     companion object {
         fun create(
@@ -215,7 +216,8 @@ data class RouteStop(
             childId: ChildId,
             scheduleId: ScheduleId,
             estimatedTime: LocalTime,
-            address: ScheduleAddress
+            address: ScheduleAddress,
+            createdAt: Instant,
         ): RouteStop {
             require(stopOrder > 0) { "Stop order must be positive" }
 
@@ -236,7 +238,8 @@ data class RouteStop(
                 executionStatus = null,
                 executionNotes = null,
                 executedByUserId = null,
-                executedByName = null
+                executedByName = null,
+                createdAt = createdAt
             )
         }
     }

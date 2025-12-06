@@ -252,7 +252,8 @@ data class RouteStopEntity(
         executionStatus = executionStatus,
         executionNotes = executionNotes,
         executedByUserId = executedByUserId,
-        executedByName = executedByName
+        executedByName = executedByName,
+        createdAt = createdAt
     )
 
     companion object {

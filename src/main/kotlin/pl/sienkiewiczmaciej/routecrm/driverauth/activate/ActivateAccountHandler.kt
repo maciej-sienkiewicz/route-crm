@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverRepository
 import pl.sienkiewiczmaciej.routecrm.driverauth.domain.AccountStatus
 import pl.sienkiewiczmaciej.routecrm.driverauth.domain.DriverCredentialsRepository
-import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
@@ -24,11 +23,10 @@ class ActivateAccountHandler(
 ) {
     @Transactional
     suspend fun handle(
-        principal: UserPrincipal,
         command: ActivateAccountCommand,
         httpRequest: HttpServletRequest
     ): ActivateAccountResult {
-        val credentials = findCredentialsByPhoneInAnyCompany(principal.companyId, command.phoneNumber)
+        val credentials = findCredentialsByPhoneInAnyCompany(command.phoneNumber)
             ?: return ActivateAccountResult.AccountNotFound
 
         if(credentials.accountStatus != AccountStatus.PENDING_ACTIVATION) {
@@ -80,11 +78,9 @@ class ActivateAccountHandler(
     }
 
     private suspend fun findCredentialsByPhoneInAnyCompany(
-        companyId: CompanyId,
         phoneNumber: String
     ): pl.sienkiewiczmaciej.routecrm.driverauth.domain.DriverCredentials? {
         return credentialsRepository.findByPhoneNumber(
-            companyId,
             phoneNumber
         )
     }

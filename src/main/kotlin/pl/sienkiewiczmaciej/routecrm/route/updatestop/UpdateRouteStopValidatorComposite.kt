@@ -45,7 +45,7 @@ class UpdateRouteStopValidatorComposite(
 @Component
 class UpdateStopRouteStatusValidator {
     fun validate(context: UpdateRouteStopValidationContext) {
-        require(context.route.status == RouteStatus.PLANNED) {
+        require(context.route.status == RouteStatus.PLANNED || context.route.status == RouteStatus.IN_PROGRESS)  {
             "Cannot update stops in route with status ${context.route.status}"
         }
     }

@@ -6,7 +6,7 @@ interface DriverCredentialsJpaRepository : JpaRepository<DriverCredentialsEntity
 
     fun findByCompanyIdAndDriverId(companyId: String, driverId: String): DriverCredentialsEntity?
 
-    fun findByCompanyIdAndPhoneNumber(companyId: String, phoneNumber: String): DriverCredentialsEntity?
+    fun findByPhoneNumber(phoneNumber: String): DriverCredentialsEntity?
 
     fun existsByCompanyIdAndPhoneNumber(companyId: String, phoneNumber: String): Boolean
 }

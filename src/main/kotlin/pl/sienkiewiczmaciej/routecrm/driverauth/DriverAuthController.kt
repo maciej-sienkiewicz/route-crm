@@ -104,10 +104,9 @@ class DriverAuthController(
             activationPin = request.activationPin,
             newPassword = request.newPassword
         )
-        val principal = getPrincipal()
 
 
-        return when (val result = activateHandler.handle(principal, command, httpRequest)) {
+        return when (val result = activateHandler.handle(command, httpRequest)) {
             is ActivateAccountResult.Success -> ResponseEntity.ok(
                 ActivateAccountResponse(
                     success = true,

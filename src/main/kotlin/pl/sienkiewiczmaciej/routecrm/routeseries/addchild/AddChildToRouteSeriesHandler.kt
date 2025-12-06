@@ -17,6 +17,7 @@ import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
 import pl.sienkiewiczmaciej.routecrm.shared.domain.events.DomainEventPublisher
 import pl.sienkiewiczmaciej.routecrm.shared.infrastructure.security.AuthorizationService
+import java.time.Instant
 
 @Component
 class AddChildToRouteSeriesHandler(
@@ -119,7 +120,8 @@ class AddChildToRouteSeriesHandler(
                     childId = command.childId,
                     scheduleId = command.scheduleId,
                     estimatedTime = context.schedule.pickupTime,
-                    address = context.schedule.pickupAddress
+                    address = context.schedule.pickupAddress,
+                    createdAt = Instant.now()
                 )
 
                 val dropoffStop = RouteStop.create(
@@ -130,7 +132,8 @@ class AddChildToRouteSeriesHandler(
                     childId = command.childId,
                     scheduleId = command.scheduleId,
                     estimatedTime = context.schedule.dropoffTime,
-                    address = context.schedule.dropoffAddress
+                    address = context.schedule.dropoffAddress,
+                    createdAt = Instant.now()
                 )
 
                 insertionService.insertStops(

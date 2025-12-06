@@ -25,7 +25,6 @@ class LoginDriverHandler(
         httpRequest: HttpServletRequest
     ): LoginDriverResult {
         val allCredentials = credentialsRepository.findByPhoneNumber(
-            companyId = pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId("*"),
             phoneNumber = command.phoneNumber
         )
 

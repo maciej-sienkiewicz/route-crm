@@ -36,11 +36,9 @@ class DriverCredentialsRepositoryImpl(
     }
 
     override suspend fun findByPhoneNumber(
-        companyId: CompanyId,
         phoneNumber: String
     ): DriverCredentials? = withContext(Dispatchers.IO) {
-        jpaRepository.findByCompanyIdAndPhoneNumber(
-            companyId.value,
+        jpaRepository.findByPhoneNumber(
             phoneNumber
         )?.toDomain()
     }

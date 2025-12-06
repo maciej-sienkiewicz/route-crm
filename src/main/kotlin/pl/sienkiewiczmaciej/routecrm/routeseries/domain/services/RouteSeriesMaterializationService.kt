@@ -10,6 +10,7 @@ import pl.sienkiewiczmaciej.routecrm.route.domain.services.GapBasedStopOrderCalc
 import pl.sienkiewiczmaciej.routecrm.routeseries.domain.*
 import pl.sienkiewiczmaciej.routecrm.schedule.domain.ScheduleRepository
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
+import java.time.Instant
 import java.time.LocalDate
 
 data class MaterializationResult(
@@ -196,7 +197,8 @@ class RouteSeriesMaterializationService(
                     childId = seriesSchedule.childId,
                     scheduleId = seriesSchedule.scheduleId,
                     estimatedTime = schedule.pickupTime,
-                    address = schedule.pickupAddress
+                    address = schedule.pickupAddress,
+                    createdAt = Instant.now(),
                 ),
                 RouteStop.create(
                     companyId = series.companyId,
@@ -206,7 +208,8 @@ class RouteSeriesMaterializationService(
                     childId = seriesSchedule.childId,
                     scheduleId = seriesSchedule.scheduleId,
                     estimatedTime = schedule.dropoffTime,
-                    address = schedule.dropoffAddress
+                    address = schedule.dropoffAddress,
+                    createdAt = Instant.now(),
                 )
             )
         }.let { gapBasedStopOrderCalculator.rebalance(it) }

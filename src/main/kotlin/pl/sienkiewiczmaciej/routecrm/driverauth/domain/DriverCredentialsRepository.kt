@@ -10,7 +10,7 @@ interface DriverCredentialsRepository {
 
     suspend fun findByDriverId(companyId: CompanyId, driverId: DriverId): DriverCredentials?
 
-    suspend fun findByPhoneNumber(companyId: CompanyId, phoneNumber: String): DriverCredentials?
+    suspend fun findByPhoneNumber(phoneNumber: String): DriverCredentials?
 
     suspend fun existsByPhoneNumber(companyId: CompanyId, phoneNumber: String): Boolean
 
