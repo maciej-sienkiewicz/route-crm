@@ -1,4 +1,3 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteJpaRepositories.kt
 package pl.sienkiewiczmaciej.routecrm.route.infrastructure
 
 import org.springframework.data.domain.Page
@@ -10,8 +9,6 @@ import org.springframework.data.repository.query.Param
 import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
 import java.time.LocalDate
 import java.time.LocalTime
-
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteJpaRepositories.kt
 
 interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
     fun findByIdAndCompanyId(id: String, companyId: String): RouteEntity?
@@ -33,7 +30,6 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         @Param("statuses") statuses: Set<RouteStatus>
     ): List<RouteEntity>
 
-    // POPRAWIONE ZAPYTANIE - jawne rzutowanie typów
     @Query("""
         SELECT r FROM RouteEntity r
         WHERE r.companyId = :companyId
@@ -104,7 +100,6 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         @Param("excludeRouteId") excludeRouteId: String?
     ): Boolean
 
-    // NOWE ZAPYTANIE dla history/upcoming
     @Query("""
         SELECT DISTINCT r FROM RouteEntity r
         JOIN RouteStopEntity s ON s.routeId = r.id AND s.companyId = r.companyId
@@ -120,7 +115,6 @@ interface RouteJpaRepository : JpaRepository<RouteEntity, String> {
         pageable: Pageable
     ): Page<RouteEntity>
 }
-
 
 interface RouteStopJpaRepository : JpaRepository<RouteStopEntity, String> {
     fun findByIdAndCompanyId(id: String, companyId: String): RouteStopEntity?
@@ -189,6 +183,20 @@ interface RouteStopJpaRepository : JpaRepository<RouteStopEntity, String> {
     ): List<RouteStopEntity>
 
     fun findByCancelledByAbsenceId(absenceId: String): List<RouteStopEntity>
+
+    @Query("""
+        SELECT s FROM RouteStopEntity s
+        WHERE s.companyId = :companyId
+        AND s.routeId = :routeId
+        AND s.actualTime IS NULL
+        AND s.isCancelled = false
+        ORDER BY s.stopOrder
+        LIMIT 1
+    """)
+    fun findNextUnexecutedStop(
+        @Param("companyId") companyId: String,
+        @Param("routeId") routeId: String
+    ): RouteStopEntity?
 }
 
 interface RouteNoteJpaRepository : JpaRepository<RouteNoteEntity, String> {

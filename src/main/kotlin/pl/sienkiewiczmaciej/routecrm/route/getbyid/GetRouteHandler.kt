@@ -1,4 +1,3 @@
-// route/getbyid/GetRouteHandler.kt (REFACTORED)
 package pl.sienkiewiczmaciej.routecrm.route.getbyid
 
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +51,8 @@ data class RouteStopDetail(
     val executedByName: String?,
     val guardianFirstName: String,
     val guardianLastName: String,
-    val guardianPhone: String
+    val guardianPhone: String,
+    val delayInfo: StopDelayInfo?
 )
 
 data class RouteDetail(
@@ -73,20 +73,33 @@ data class RouteDetail(
     val actualStartTime: Instant?,
     val actualEndTime: Instant?,
     val stops: List<RouteStopDetail>,
-    val notes: List<RouteNote>
+    val notes: List<RouteNote>,
+    val isDelayed: Boolean,
+    val delayInfo: RouteDelayInfo?
+)
+
+data class StopDelayInfo(
+    val isDelayed: Boolean,
+    val delayMinutes: Int,
+    val delayType: String,
+    val detectedAt: Instant
+)
+
+data class RouteDelayInfo(
+    val hasDelays: Boolean,
+    val maxDelayMinutes: Int,
+    val totalDelayedStops: Int,
+    val lastDelayDetectedAt: Instant
 )
 
 class RouteNotFoundException(id: RouteId) : NotFoundException("Route ${id.value} not found")
 
-/**
- * Refactored GetRouteHandler - simplified to ~30 lines.
- * Query logic remains complex due to data enrichment needs.
- */
 @Component
 class GetRouteHandler(
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
     private val noteRepository: RouteNoteRepository,
+    private val delayEventRepository: RouteDelayEventRepository,
     private val driverRepository: DriverJpaRepository,
     private val vehicleRepository: VehicleJpaRepository,
     private val childRepository: ChildJpaRepository,
@@ -96,18 +109,14 @@ class GetRouteHandler(
 ) {
     @Transactional(readOnly = true)
     suspend fun handle(principal: UserPrincipal, query: GetRouteQuery): RouteDetail {
-        // 1. Authorization
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR, UserRole.DRIVER, UserRole.GUARDIAN)
         authService.requireSameCompany(principal.companyId, query.companyId)
 
-        // 2. Load route
         val route = routeRepository.findById(query.companyId, query.id)
             ?: throw RouteNotFoundException(query.id)
 
-        // 3. Role-specific authorization
         checkRoleSpecificAccess(principal, route)
 
-        // 4. Load and enrich data (parallel queries)
         return buildRouteDetail(query, route, principal)
     }
 
@@ -121,9 +130,8 @@ class GetRouteHandler(
                 }
             }
             UserRole.GUARDIAN -> {
-                // Guardian access check done after loading stops
             }
-            else -> { /* ADMIN/OPERATOR have full access */ }
+            else -> { }
         }
     }
 
@@ -132,7 +140,6 @@ class GetRouteHandler(
         route: Route,
         principal: UserPrincipal
     ): RouteDetail = withContext(Dispatchers.IO) {
-        // Parallel data loading
         val driverDeferred = async {
             route.driverId?.let { driverId ->
                 driverRepository.findByIdAndCompanyId(driverId.value, query.companyId.value)
@@ -153,20 +160,33 @@ class GetRouteHandler(
             noteRepository.findByRoute(query.companyId, query.id)
         }
 
+        val delayEventsDeferred = async {
+            delayEventRepository.findByRouteGroupedByStop(query.companyId, query.id)
+        }
+
         val driver = driverDeferred.await()
         val vehicle = vehicleDeferred.await()
         val stops = stopsDeferred.await()
         val notes = notesDeferred.await()
+        val delayEventsByStop = delayEventsDeferred.await()
 
-        // Enrich stops with child and guardian data
         val stopsDetails = stops.map { stop ->
-            async { enrichStopWithDetails(stop, query.companyId) }
+            async { enrichStopWithDetails(stop, query.companyId, delayEventsByStop) }
         }.awaitAll()
 
-        // Guardian access check
         if (principal.role == UserRole.GUARDIAN && principal.guardianId != null) {
             checkGuardianAccess(principal.guardianId, stopsDetails, query.companyId)
         }
+
+        val allDelayEvents = delayEventsByStop.values.toList()
+        val routeDelayInfo = if (allDelayEvents.isNotEmpty()) {
+            RouteDelayInfo(
+                hasDelays = true,
+                maxDelayMinutes = allDelayEvents.maxOf { it.delayMinutes },
+                totalDelayedStops = allDelayEvents.distinctBy { it.stopId.value }.size,
+                lastDelayDetectedAt = allDelayEvents.maxOf { it.detectedAt }
+            )
+        } else null
 
         RouteDetail(
             id = route.id,
@@ -186,13 +206,16 @@ class GetRouteHandler(
             actualStartTime = route.actualStartTime,
             actualEndTime = route.actualEndTime,
             stops = stopsDetails.sortedBy { it.stopOrder },
-            notes = notes
+            notes = notes,
+            isDelayed = routeDelayInfo != null,
+            delayInfo = routeDelayInfo
         )
     }
 
     private suspend fun enrichStopWithDetails(
         stop: RouteStop,
-        companyId: CompanyId
+        companyId: CompanyId,
+        delayEventsByStop: Map<String, RouteDelayEvent>
     ): RouteStopDetail {
         val child = childRepository.findByIdAndCompanyId(stop.childId.value, companyId.value)
             ?: throw NotFoundException("Child ${stop.childId.value} not found")
@@ -217,6 +240,16 @@ class GetRouteHandler(
             Triple("", "", "")
         }
 
+        val delayEvent = delayEventsByStop[stop.id.value]
+        val stopDelayInfo = delayEvent?.let {
+            StopDelayInfo(
+                isDelayed = true,
+                delayMinutes = it.delayMinutes,
+                delayType = it.detectionType.name,
+                detectedAt = it.detectedAt
+            )
+        }
+
         return RouteStopDetail(
             id = stop.id,
             stopOrder = stop.stopOrder,
@@ -236,7 +269,8 @@ class GetRouteHandler(
             executedByName = stop.executedByName,
             guardianFirstName = guardianFirstName,
             guardianLastName = guardianLastName,
-            guardianPhone = guardianPhone
+            guardianPhone = guardianPhone,
+            delayInfo = stopDelayInfo
         )
     }
 

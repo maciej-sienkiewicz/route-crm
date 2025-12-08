@@ -1,4 +1,3 @@
-// route/list/ListRoutesHandler.kt (REFACTORED)
 package pl.sienkiewiczmaciej.routecrm.route.list
 
 import kotlinx.coroutines.Dispatchers
@@ -12,10 +11,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import pl.sienkiewiczmaciej.routecrm.driver.domain.DriverId
 import pl.sienkiewiczmaciej.routecrm.driver.infrastructure.DriverJpaRepository
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteId
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteRepository
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStatus
-import pl.sienkiewiczmaciej.routecrm.route.domain.RouteStopRepository
+import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.shared.domain.CompanyId
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserPrincipal
 import pl.sienkiewiczmaciej.routecrm.shared.domain.UserRole
@@ -46,28 +42,25 @@ data class RouteListItem(
     val vehicleModel: String,
     val estimatedStartTime: LocalTime,
     val estimatedEndTime: LocalTime,
-    val stopsCount: Int
+    val stopsCount: Int,
+    val isDelayed: Boolean,
+    val delayMinutes: Int?
 )
 
-/**
- * Refactored ListRoutesHandler - simplified to ~25 lines.
- * Logic is in repository and role-based filtering.
- */
 @Component
 class ListRoutesHandler(
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
     private val driverRepository: DriverJpaRepository,
     private val vehicleRepository: VehicleJpaRepository,
+    private val delayEventRepository: RouteDelayEventRepository,
     private val authService: AuthorizationService
 ) {
     @Transactional(readOnly = true)
     suspend fun handle(principal: UserPrincipal, query: ListRoutesQuery): Page<RouteListItem> {
-        // 1. Authorization
         authService.requireRole(principal, UserRole.ADMIN, UserRole.OPERATOR, UserRole.DRIVER, UserRole.GUARDIAN)
         authService.requireSameCompany(principal.companyId, query.companyId)
 
-        // 2. Load routes based on role
         val routes = when (principal.role) {
             UserRole.DRIVER -> {
                 require(principal.driverId != null) { "Driver ID is required" }
@@ -79,9 +72,6 @@ class ListRoutesHandler(
                 )
             }
             UserRole.GUARDIAN -> {
-                // Guardian sees only routes with their children
-                // This would require a dedicated repository method
-                // For now, use general method and filter (not optimal for large datasets)
                 routeRepository.findAll(
                     companyId = query.companyId,
                     date = query.date,
@@ -101,7 +91,6 @@ class ListRoutesHandler(
             }
         }
 
-        // 3. Enrich with driver, vehicle, stops count
         val items = enrichRouteListItems(routes, query.companyId)
 
         return PageImpl(items, routes.pageable, routes.totalElements)
@@ -127,6 +116,14 @@ class ListRoutesHandler(
 
                 val stopsCount = stopRepository.countByRoute(companyId, route.id)
 
+                val delayEvents = delayEventRepository.findByRoute(companyId, route.id)
+                val isDelayed = delayEvents.isNotEmpty()
+                val maxDelayMinutes = if (isDelayed) {
+                    delayEvents.maxOfOrNull { it.delayMinutes }
+                } else {
+                    null
+                }
+
                 RouteListItem(
                     id = route.id,
                     routeName = route.routeName,
@@ -140,7 +137,9 @@ class ListRoutesHandler(
                     vehicleModel = vehicle?.model ?: "",
                     estimatedStartTime = route.estimatedStartTime,
                     estimatedEndTime = route.estimatedEndTime,
-                    stopsCount = stopsCount
+                    stopsCount = stopsCount,
+                    isDelayed = isDelayed,
+                    delayMinutes = maxDelayMinutes
                 )
             }
         }.awaitAll()

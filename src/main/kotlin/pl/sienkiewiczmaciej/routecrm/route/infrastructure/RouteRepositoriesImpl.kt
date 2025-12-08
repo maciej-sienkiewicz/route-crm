@@ -1,4 +1,3 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/infrastructure/RouteRepositoriesImpl.kt
 package pl.sienkiewiczmaciej.routecrm.route.infrastructure
 
 import kotlinx.coroutines.Dispatchers
@@ -176,7 +175,6 @@ class RouteStopRepositoryImpl(
             jpaRepository.delete(entity)
         }
     }
-
     @Transactional
     override suspend fun deleteByRoute(companyId: CompanyId, routeId: RouteId) {
         withContext(Dispatchers.IO) {
@@ -200,13 +198,22 @@ class RouteStopRepositoryImpl(
             date
         ).map { it.toDomain() }
     }
+
+    override suspend fun findNextUnexecutedStop(
+        companyId: CompanyId,
+        routeId: RouteId
+    ): RouteStop? = withContext(Dispatchers.IO) {
+        jpaRepository.findNextUnexecutedStop(
+            companyId.value,
+            routeId.value
+        )?.toDomain()
+    }
 }
 
 @Repository
 class RouteNoteRepositoryImpl(
     private val jpaRepository: RouteNoteJpaRepository
 ) : RouteNoteRepository {
-
     override suspend fun save(note: RouteNote): RouteNote = withContext(Dispatchers.IO) {
         val entity = RouteNoteEntity.fromDomain(note)
         jpaRepository.save(entity).toDomain()

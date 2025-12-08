@@ -1,4 +1,3 @@
-// src/main/kotlin/pl/sienkiewiczmaciej/routecrm/route/RouteDTOs.kt
 package pl.sienkiewiczmaciej.routecrm.route
 
 import com.fasterxml.jackson.annotation.JsonFormat
@@ -23,7 +22,9 @@ import pl.sienkiewiczmaciej.routecrm.route.create.RouteStopData
 import pl.sienkiewiczmaciej.routecrm.route.domain.*
 import pl.sienkiewiczmaciej.routecrm.route.executestop.ExecuteRouteStopCommand
 import pl.sienkiewiczmaciej.routecrm.route.executestop.ExecuteRouteStopResult
+import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteDelayInfo
 import pl.sienkiewiczmaciej.routecrm.route.getbyid.RouteDetail
+import pl.sienkiewiczmaciej.routecrm.route.getbyid.StopDelayInfo
 import pl.sienkiewiczmaciej.routecrm.route.list.RouteListItem
 import pl.sienkiewiczmaciej.routecrm.route.note.AddNoteResult
 import pl.sienkiewiczmaciej.routecrm.route.reassigndriver.ReassignDriverCommand
@@ -86,7 +87,6 @@ data class CreateRouteRequest(
     @field:NotBlank(message = "Route name is required")
     @field:Size(min = 1, max = 255)
     val routeName: String,
-
     @field:NotNull(message = "Date is required")
     val date: LocalDate,
 
@@ -118,7 +118,6 @@ data class CreateRouteRequest(
         stops = stops.map { it.toData() }
     )
 }
-
 data class RouteResponse(
     val id: String,
     val companyId: String,
@@ -154,19 +153,16 @@ data class RouteResponse(
         )
     }
 }
-
 data class DriverSimpleResponse(
     val id: String,
     val firstName: String,
     val lastName: String
 )
-
 data class VehicleSimpleResponse(
     val id: String,
     val registrationNumber: String,
     val model: String
 )
-
 data class RouteListResponse(
     val id: String,
     val routeName: String,
@@ -178,7 +174,9 @@ data class RouteListResponse(
     val estimatedStartTime: LocalTime,
     @JsonFormat(pattern = "HH:mm")
     val estimatedEndTime: LocalTime,
-    val stopsCount: Int
+    val stopsCount: Int,
+    val isDelayed: Boolean,
+    val delayMinutes: Int?
 ) {
     companion object {
         fun from(item: RouteListItem) = RouteListResponse(
@@ -200,7 +198,9 @@ data class RouteListResponse(
             ),
             estimatedStartTime = item.estimatedStartTime,
             estimatedEndTime = item.estimatedEndTime,
-            stopsCount = item.stopsCount
+            stopsCount = item.stopsCount,
+            isDelayed = item.isDelayed,
+            delayMinutes = item.delayMinutes
         )
     }
 }
@@ -223,22 +223,50 @@ data class RouteStopDetailResponse(
     val executionStatus: ExecutionStatus?,
     val executionNotes: String?,
     val executedByName: String?,
-    val guardian: GuardianSimpleResponse
+    val guardian: GuardianSimpleResponse,
+    val delayInfo: StopDelayInfoResponse?
 )
-
+data class StopDelayInfoResponse(
+    val isDelayed: Boolean,
+    val delayMinutes: Int,
+    val delayType: String,
+    val detectedAt: Instant
+) {
+    companion object {
+        fun from(info: StopDelayInfo) = StopDelayInfoResponse(
+            isDelayed = info.isDelayed,
+            delayMinutes = info.delayMinutes,
+            delayType = info.delayType,
+            detectedAt = info.detectedAt
+        )
+    }
+}
+data class RouteDelayInfoResponse(
+    val hasDelays: Boolean,
+    val maxDelayMinutes: Int,
+    val totalDelayedStops: Int,
+    val lastDelayDetectedAt: Instant
+) {
+    companion object {
+        fun from(info: RouteDelayInfo) = RouteDelayInfoResponse(
+            hasDelays = info.hasDelays,
+            maxDelayMinutes = info.maxDelayMinutes,
+            totalDelayedStops = info.totalDelayedStops,
+            lastDelayDetectedAt = info.lastDelayDetectedAt
+        )
+    }
+}
 data class GuardianSimpleResponse(
     val firstName: String,
     val lastName: String,
     val phone: String
 )
-
 data class RouteNoteResponse(
     val id: String,
     val author: String,
     val content: String,
     val createdAt: Instant
 )
-
 data class RouteDetailResponse(
     val id: String,
     val companyId: String,
@@ -257,7 +285,9 @@ data class RouteDetailResponse(
     val stops: List<RouteStopDetailResponse>,
     val notes: List<RouteNoteResponse>,
     val createdAt: Instant,
-    val updatedAt: Instant
+    val updatedAt: Instant,
+    val isDelayed: Boolean,
+    val delayInfo: RouteDelayInfoResponse?
 ) {
     companion object {
         fun from(detail: RouteDetail) = RouteDetailResponse(
@@ -305,7 +335,8 @@ data class RouteDetailResponse(
                         firstName = stop.guardianFirstName,
                         lastName = stop.guardianLastName,
                         phone = stop.guardianPhone
-                    )
+                    ),
+                    delayInfo = stop.delayInfo?.let { StopDelayInfoResponse.from(it) }
                 )
             },
             notes = detail.notes.map { note ->
@@ -317,19 +348,18 @@ data class RouteDetailResponse(
                 )
             },
             createdAt = Instant.now(),
-            updatedAt = Instant.now()
+            updatedAt = Instant.now(),
+            isDelayed = detail.isDelayed,
+            delayInfo = detail.delayInfo?.let { RouteDelayInfoResponse.from(it) }
         )
     }
 }
-
 data class UpdateRouteStatusRequest(
     @field:NotNull(message = "Status is required")
     val status: RouteStatus,
-
     val actualStartTime: Instant?,
     val actualEndTime: Instant?
 )
-
 data class UpdateRouteStatusResponse(
     val id: String,
     val status: RouteStatus,
@@ -347,13 +377,11 @@ data class UpdateRouteStatusResponse(
         )
     }
 }
-
 data class AddRouteNoteRequest(
     @field:NotBlank(message = "Note content is required")
     @field:Size(max = 5000)
     val content: String
 )
-
 data class AddRouteNoteResponse(
     val id: String,
     val routeId: String,
@@ -371,12 +399,10 @@ data class AddRouteNoteResponse(
         )
     }
 }
-
 data class AddRouteStopRequest(
     @field:NotNull(message = "Stop order is required")
     @field:Min(1, message = "Stop order must be at least 1")
     val stopOrder: Int,
-
     @field:NotNull(message = "Stop type is required")
     val stopType: StopType,
 
@@ -410,7 +436,6 @@ data class AddRouteStopRequest(
         )
     )
 }
-
 data class ReorderStopsRequest(
     @field:NotEmpty(message = "At least one stop order is required")
     val stopOrders: List<StopOrderRequest>
@@ -426,16 +451,13 @@ data class ReorderStopsRequest(
         }
     )
 }
-
 data class StopOrderRequest(
     @field:NotBlank(message = "Stop ID is required")
     val stopId: String,
-
     @field:NotNull(message = "New order is required")
     @field:Min(1, message = "Order must be at least 1")
     val newOrder: Int
 )
-
 data class ReorderStopsResponse(
     val routeId: String,
     val updatedStopsCount: Int
@@ -447,7 +469,6 @@ data class ReorderStopsResponse(
         )
     }
 }
-
 data class CancelRouteStopRequest(
     @field:NotBlank(message = "Cancellation reason is required")
     @field:Size(max = 5000)
@@ -461,7 +482,6 @@ data class CancelRouteStopRequest(
             reason = reason
         )
 }
-
 data class CancelRouteStopResponse(
     val id: String,
     val isCancelled: Boolean,
@@ -477,11 +497,9 @@ data class CancelRouteStopResponse(
         )
     }
 }
-
 data class ExecuteRouteStopRequest(
     @field:NotNull(message = "Actual time is required")
     val actualTime: Instant,
-
     @field:NotNull(message = "Execution status is required")
     val status: ExecutionStatus,
 
@@ -498,7 +516,6 @@ data class ExecuteRouteStopRequest(
             notes = notes
         )
 }
-
 data class ExecuteRouteStopResponse(
     val id: String,
     val actualTime: Instant,
@@ -514,7 +531,6 @@ data class ExecuteRouteStopResponse(
         )
     }
 }
-
 data class AvailableChildResponse(
     val id: String,
     val firstName: String,
@@ -528,7 +544,6 @@ data class AvailableChildResponse(
     companion object {
         fun from(item: AvailableChildItem, referenceDate: LocalDate): AvailableChildResponse {
             val age = Period.between(item.birthDate, referenceDate).years
-
             return AvailableChildResponse(
                 id = item.childId.value,
                 firstName = item.firstName,
@@ -553,7 +568,6 @@ data class AvailableChildResponse(
         }
     }
 }
-
 data class AvailableChildScheduleResponse(
     val id: String,
     val name: String,
@@ -564,18 +578,15 @@ data class AvailableChildScheduleResponse(
     val pickupAddress: ScheduleAddressResponse,
     val dropoffAddress: ScheduleAddressResponse
 )
-
 data class AvailableChildGuardianResponse(
     val firstName: String,
     val lastName: String,
     val phone: String
 )
-
 data class UpdateRouteStopRequest(
     @field:NotNull(message = "Estimated time is required")
     @JsonFormat(pattern = "HH:mm")
     val estimatedTime: LocalTime,
-
     @field:Valid
     @field:NotNull(message = "Address is required")
     val address: ScheduleAddressRequest
@@ -594,7 +605,6 @@ data class UpdateRouteStopRequest(
             )
         )
 }
-
 data class UpdateRouteStopResponse(
     val id: String,
     val estimatedTime: LocalTime,
@@ -610,11 +620,9 @@ data class UpdateRouteStopResponse(
         )
     }
 }
-
 data class AddRouteScheduleRequest(
     @field:NotBlank(message = "Child ID is required")
     val childId: String,
-
     @field:NotBlank(message = "Schedule ID is required")
     val scheduleId: String,
 
@@ -635,12 +643,10 @@ data class AddRouteScheduleRequest(
         dropoffStop = dropoffStop.toData(StopType.DROPOFF)
     )
 }
-
 data class RouteStopDataRequest(
     @field:NotNull(message = "Stop order is required")
     @field:Min(1, message = "Stop order must be at least 1")
     val stopOrder: Int,
-
     @field:NotNull(message = "Estimated time is required")
     @JsonFormat(pattern = "HH:mm")
     val estimatedTime: LocalTime,
@@ -661,7 +667,6 @@ data class RouteStopDataRequest(
         )
     )
 }
-
 data class AddRouteScheduleResponse(
     val pickupStopId: String,
     val dropoffStopId: String,
@@ -677,7 +682,6 @@ data class AddRouteScheduleResponse(
         )
     }
 }
-
 data class CancelRouteScheduleRequest(
     @field:NotBlank(message = "Cancellation reason is required")
     @field:Size(max = 5000)
@@ -691,7 +695,6 @@ data class CancelRouteScheduleRequest(
             reason = reason
         )
 }
-
 data class CancelRouteScheduleResponse(
     val scheduleId: String,
     val pickupStopId: String,
@@ -709,7 +712,6 @@ data class CancelRouteScheduleResponse(
         )
     }
 }
-
 data class RouteHistoryResponse(
     val id: String,
     val routeName: String,
@@ -753,7 +755,6 @@ data class RouteHistoryResponse(
         )
     }
 }
-
 data class UpcomingRouteResponse(
     val id: String,
     val routeName: String,
@@ -793,7 +794,6 @@ data class UpcomingRouteResponse(
         )
     }
 }
-
 data class ChildStopInfoResponse(
     val stopId: String,
     val stopOrder: Int,
@@ -909,7 +909,8 @@ data class ReassignDriverRequest(
         ReassignDriverCommand(
             companyId = companyId,
             routeId = routeId,
-            newDriverId = DriverId.from(newDriverId),
+            newDriverId = DriverId.
+            from(newDriverId),
             reason = reason
         )
 }
@@ -931,7 +932,6 @@ data class ReassignDriverResponse(
             message = "Driver reassigned successfully")
     }
 }
-
 data class DriverAssignmentHistoryResponse(
     val id: String,
     val previousDriverId: String,

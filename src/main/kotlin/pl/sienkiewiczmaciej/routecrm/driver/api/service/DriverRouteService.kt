@@ -3,6 +3,7 @@ package pl.sienkiewiczmaciej.routecrm.driver.api.service
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -16,14 +17,17 @@ import pl.sienkiewiczmaciej.routecrm.vehicle.domain.VehicleRepository
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 @Service
 class DriverRouteService(
     private val routeRepository: RouteRepository,
     private val stopRepository: RouteStopRepository,
     private val vehicleRepository: VehicleRepository,
-    private val childRepository: ChildRepository
+    private val childRepository: ChildRepository,
+    private val delayEventRepository: RouteDelayEventRepository
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     suspend fun getUpcomingRoute(principal: UserPrincipal): DriverRouteDTO = coroutineScope {
         val driverId = principal.extractDriverId()
@@ -160,6 +164,8 @@ class DriverRouteService(
 
         val savedStop = stopRepository.save(updatedStop)
 
+        detectAndPersistDelayIfNeeded(route, savedStop)
+
         val allStops = stopRepository.findByRoute(principal.companyId, route.id, includeCancelled = false)
         val allExecuted = allStops.all { it.executionStatus != null || it.isCancelled }
 
@@ -182,6 +188,34 @@ class DriverRouteService(
                 stopsTotal = allStops.size
             )
         )
+    }
+
+    private suspend fun detectAndPersistDelayIfNeeded(route: Route, stop: RouteStop) {
+        if (stop.actualTime == null) return
+
+        val estimatedDateTime = stop.estimatedTime
+            .atDate(route.date)
+            .atZone(ZoneId.systemDefault())
+            .toInstant()
+
+        val delay = Duration.between(estimatedDateTime, stop.actualTime)
+
+        if (delay.toMinutes() >= DELAY_THRESHOLD_MINUTES) {
+            delayEventRepository.save(
+                RouteDelayEvent.retrospective(
+                    companyId = route.companyId,
+                    routeId = route.id,
+                    stopId = stop.id,
+                    delayMinutes = delay.toMinutes().toInt(),
+                    detectedAt = Instant.now()
+                )
+            )
+
+            logger.info(
+                "Retrospective delay detected in driver app: Route ${route.id.value}, " +
+                        "Stop ${stop.id.value}, Delay: ${delay.toMinutes()} minutes"
+            )
+        }
     }
 
     private suspend fun verifyNoActiveRoute(principal: UserPrincipal, driverId: DriverId) {
@@ -289,4 +323,8 @@ class DriverRouteService(
         } else {
             "${reason.name}: $additionalNotes"
         }
+
+    companion object {
+        private const val DELAY_THRESHOLD_MINUTES = 3L
+    }
 }

@@ -37,7 +37,7 @@ interface DashboardJpaRepository : JpaRepository<RouteEntity, String> {
         FROM RouteEntity r
         WHERE r.companyId = :companyId
         AND r.date = :date
-        AND r.status IN ('PLANNED', 'IN_PROGRESS')
+        AND r.status IN ('PLANNED', 'IN_PROGRESS', 'DRIVER_MISSING')
     """)
     fun countTotalRoutes(
         @Param("companyId") companyId: String,
