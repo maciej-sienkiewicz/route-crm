@@ -46,5 +46,5 @@ interface DriverDailyPerformanceJpaRepository : JpaRepository<DriverDailyPerform
     fun deleteByCompanyIdAndMetricDate(
         @Param("companyId") companyId: String,
         @Param("metricDate") metricDate: LocalDate
-    )
+    ): Int
 }

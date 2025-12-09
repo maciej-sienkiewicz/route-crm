@@ -3,6 +3,7 @@ package pl.sienkiewiczmaciej.routecrm.shared.infrastructure.config
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
+import org.springframework.core.annotation.Order
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import pl.sienkiewiczmaciej.routecrm.auth.global.AccountStatus
@@ -45,6 +46,7 @@ import java.time.ZoneOffset
 import java.util.*
 
 @Component
+@Order(1)
 class DataInitializer(
     private val userRepository: UserJpaRepository,
     private val companyRepository: CompanyJpaRepository,

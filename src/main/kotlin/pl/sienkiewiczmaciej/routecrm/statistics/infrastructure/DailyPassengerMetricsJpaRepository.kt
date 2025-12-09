@@ -12,19 +12,20 @@ interface DailyPassengerMetricsJpaRepository : JpaRepository<DailyPassengerMetri
     @Query("""
         SELECT m FROM DailyPassengerMetricsEntity m
         WHERE m.companyId = :companyId
-AND m.metricDate >= :startDate
-AND m.metricDate <= :endDate
-ORDER BY m.metricDate ASC
-""")
+        AND m.metricDate >= :startDate
+        AND m.metricDate <= :endDate
+        ORDER BY m.metricDate ASC
+    """)
     fun findByCompanyIdAndMetricDateBetween(
         @Param("companyId") companyId: String,
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate
     ): List<DailyPassengerMetricsEntity>
+
     @Modifying
     @Query("DELETE FROM DailyPassengerMetricsEntity m WHERE m.companyId = :companyId AND m.metricDate = :metricDate")
     fun deleteByCompanyIdAndMetricDate(
         @Param("companyId") companyId: String,
         @Param("metricDate") metricDate: LocalDate
-    )
+    ): Int
 }

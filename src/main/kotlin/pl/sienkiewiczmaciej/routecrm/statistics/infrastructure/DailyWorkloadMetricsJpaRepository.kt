@@ -27,5 +27,5 @@ interface DailyWorkloadMetricsJpaRepository : JpaRepository<DailyWorkloadMetrics
     fun deleteByCompanyIdAndMetricDate(
         @Param("companyId") companyId: String,
         @Param("metricDate") metricDate: LocalDate
-    )
+    ): Int
 }
